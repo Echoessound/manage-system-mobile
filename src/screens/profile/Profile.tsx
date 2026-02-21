@@ -11,7 +11,7 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth, useLogout } from '../../hooks';
 import { clearStorage } from '../../api';
 import { MainTabScreenProps } from '../../navigation/types';
@@ -64,9 +64,9 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       onPress={onPress}
       disabled={!onPress}
     >
-      <Icon name={icon} size={24} color={colors.primary} />
+      <MaterialIcons name={icon} size={24} color={colors.primary} />
       <Text style={styles.menuTitle}>{title}</Text>
-      {showArrow && <Icon name="chevron-right" size={24} color={colors.gray} />}
+      {showArrow && <MaterialIcons name="chevron-right" size={24} color={colors.gray} />}
     </TouchableOpacity>
   );
 
@@ -74,7 +74,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
-          <Icon name="account-circle" size={80} color={colors.primary} />
+          <MaterialIcons name="account-circle" size={80} color={colors.primary} />
         </View>
         {isLoggedIn && user ? (
           <>
@@ -208,4 +208,5 @@ const styles = StyleSheet.create({
 });
 
 export default ProfileScreen;
+
 

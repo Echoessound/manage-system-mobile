@@ -20,6 +20,7 @@ export const colors = {
   text: '#333333',
   textSecondary: '#666666',
   border: '#DDDDDD',
+  disabled: '#CCCCCC',
 };
 
 // ==================== API 配置 ====================
@@ -29,6 +30,12 @@ export const API_BASE_URL = 'http://localhost:8080';
 
 /** API 超时时间（毫秒） */
 export const API_TIMEOUT = 30000;
+
+/** 高德地图 Web API Key */
+export const AMAP_KEY = 'ec60beb00a8047166085fd4e9395b0fa';
+
+/** 高德地图服务地址 */
+export const AMAP_GEO_URL = 'https://restapi.amap.com/v3/geocode/geo';
 
 // ==================== 图片配置 ====================
 
@@ -116,4 +123,5 @@ export const HOTEL_IMAGES_MAX = 9;
 
 /** 房型图片最多 */
 export const ROOM_IMAGES_MAX = 3;
+
 

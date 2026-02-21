@@ -2,7 +2,7 @@
  * 注册屏幕
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -23,7 +23,18 @@ const RegisterScreen = ({ navigation }: any) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   const [username, setUsername] = useState('');
-  
+  const [countdown, setCountdown] = useState(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 组件卸载时清理定时器
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, []);
+
   const { register, sendCode, loading } = useRegister();
 
   const handleSendCode = async () => {
@@ -34,6 +45,20 @@ const RegisterScreen = ({ navigation }: any) => {
     try {
       await sendCode(email);
       Alert.alert('提示', '验证码已发送到您的邮箱');
+      // 开始10秒倒计时
+      setCountdown(10);
+      timerRef.current = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            if (timerRef.current) {
+              clearInterval(timerRef.current);
+              timerRef.current = null;
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     } catch (error: any) {
       Alert.alert('错误', error.message || '发送验证码失败');
     }
@@ -111,10 +136,13 @@ const RegisterScreen = ({ navigation }: any) => {
                 keyboardType="number-pad"
               />
               <TouchableOpacity
-                style={styles.codeButton}
+                style={[styles.codeButton, countdown > 0 && styles.codeButtonDisabled]}
                 onPress={handleSendCode}
+                disabled={countdown > 0}
               >
-                <Text style={styles.codeButtonText}>发送验证码</Text>
+                <Text style={styles.codeButtonText}>
+                  {countdown > 0 ? `${countdown}秒后重发` : '发送验证码'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -220,6 +248,9 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 15,
     borderRadius: 10,
+  },
+  codeButtonDisabled: {
+    backgroundColor: colors.disabled,
   },
   codeButtonText: {
     color: colors.white,

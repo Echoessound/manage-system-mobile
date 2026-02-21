@@ -24,6 +24,10 @@ import {
   User,
 } from '../types';
 import { STORAGE_KEYS } from '../constants';
+import { useAuth } from '../contexts/AuthContext';
+
+// 重新导出 AuthContext
+export { useAuth, AuthProvider } from '../contexts/AuthContext';
 
 // ==================== 认证相关 Hooks ====================
 
@@ -33,6 +37,7 @@ import { STORAGE_KEYS } from '../constants';
 export const useLogin = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { setAuthState } = useAuth();
 
   const login = useCallback(async (data: LoginRequest) => {
     setLoading(true);
@@ -42,6 +47,8 @@ export const useLogin = () => {
       if (response.code === 200 && response.data) {
         await saveToken(response.data.token);
         await saveUser(response.data.user);
+        // 更新全局认证状态
+        setAuthState(true, response.data.user);
         return response.data;
       } else {
         throw new Error(response.message || '登录失败');
@@ -53,7 +60,7 @@ export const useLogin = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setAuthState]);
 
   return { login, loading, error };
 };
@@ -110,48 +117,20 @@ export const useRegister = () => {
  */
 export const useLogout = () => {
   const [loading, setLoading] = useState(false);
+  const { setAuthState } = useAuth();
 
   const logout = useCallback(async () => {
     setLoading(true);
     try {
       await apiLogout();
     } finally {
+      // 更新全局认证状态
+      setAuthState(false, null);
       setLoading(false);
     }
-  }, []);
+  }, [setAuthState]);
 
   return { logout, loading };
-};
-
-/**
- * 检查登录状态 Hook
- */
-export const useAuth = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const token = await AsyncStorage.getItem(STORAGE_KEYS.TOKEN);
-        const userJson = await AsyncStorage.getItem(STORAGE_KEYS.USER);
-        
-        if (token && userJson) {
-          setIsLoggedIn(true);
-          setUser(JSON.parse(userJson));
-        }
-      } catch (error) {
-        console.error('检查登录状态失败:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, []);
-
-  return { isLoggedIn, user, loading };
 };
 
 // ==================== 酒店相关 Hooks ====================
@@ -183,7 +162,11 @@ export const useHotelList = (initialParams?: HotelListParams) => {
         pageSize: 10,
       };
       
+      console.log('Fetching hotels with params:', queryParams);
+      
       const response = await getHotelList(queryParams);
+      
+      console.log('API response data:', JSON.stringify(response.data));
       
       if (response.code === 200 && response.data) {
         const newHotels = reset 
@@ -191,6 +174,7 @@ export const useHotelList = (initialParams?: HotelListParams) => {
           : [...hotels, ...response.data.items];
         
         setHotels(newHotels);
+        console.log('Setting total:', response.data.total);
         setTotal(response.data.total);
         setHasMore(currentPage < response.data.totalPages);
         setPage(currentPage);
@@ -220,13 +204,15 @@ export const useHotelList = (initialParams?: HotelListParams) => {
 
   const updateParams = useCallback((newParams: Partial<HotelListParams>) => {
     setParams(prev => ({ ...prev, ...newParams }));
-    setPage(1);
-    setHotels([]);
   }, []);
 
+  // 监听 params 变化，自动获取酒店列表
   useEffect(() => {
-    fetchHotels(true);
-  }, []);
+    // 跳过初始空参数请求（当没有city也没有keyword时）
+    if (params && (params.city || params.keyword !== undefined)) {
+      fetchHotels(true);
+    }
+  }, [params]);
 
   return {
     hotels,
@@ -372,4 +358,5 @@ export const useFavorite = (hotelId: string) => {
 
   return { isFavorite, toggleFavorite, loading };
 };
+
 

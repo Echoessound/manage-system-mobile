@@ -1,96 +1,328 @@
 /**
- * 首页 - 酒店列表
+ * 首页 - 搜索界面
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
-  Image,
-  RefreshControl,
+  TextInput,
+  ScrollView,
   ActivityIndicator,
+  FlatList,
+  Modal,
+  Alert,
 } from 'react-native';
+import * as Location from 'expo-location';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useHotelList } from '../../hooks';
 import { MainTabScreenProps } from '../../navigation/types';
-import { Hotel } from '../../types';
-import { DEFAULT_HOTEL_IMAGE } from '../../constants';
-import { formatPrice, getRatingDisplay } from '../../utils';
+import { SUPPORTED_CITIES } from '../../constants';
+import { searchAddress, geocodeAddress, reverseGeocode, Location as LocationType } from '../../services/location';
 
 type Props = MainTabScreenProps<'Home'>;
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
-  const [refreshing, setRefreshing] = useState(false);
-  const { hotels, loading, hasMore, total, refresh, loadMore } = useHotelList();
+  const [selectedCity, setSelectedCity] = useState('北京');
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [showCityPicker, setShowCityPicker] = useState(false);
+  const [showAddressPicker, setShowAddressPicker] = useState(false);
+  const [addressSuggestions, setAddressSuggestions] = useState<string[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [locating, setLocating] = useState(false);
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    refresh();
-    setRefreshing(false);
-  }, [refresh]);
+  // 热门城市
+  const hotCities = SUPPORTED_CITIES.slice(0, 8);
 
-  const renderHotelItem = ({ item }: { item: Hotel }) => (
+  // 搜索地址建议
+  const handleAddressSearch = useCallback(async (keyword: string) => {
+    if (keyword.length < 2) {
+      setAddressSuggestions([]);
+      return;
+    }
+    setLoadingSuggestions(true);
+    try {
+      const results = await searchAddress(keyword, selectedCity);
+      setAddressSuggestions(results);
+    } catch (error) {
+      console.error('搜索地址失败:', error);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  }, [selectedCity]);
+
+  // 地址输入变化
+  const handleKeywordChange = (text: string) => {
+    setSearchKeyword(text);
+    // 防抖搜索
+    const timeoutId = setTimeout(() => {
+      handleAddressSearch(text);
+    }, 300);
+    return () => clearTimeout(timeoutId);
+  };
+
+  // 选择地址
+  const handleAddressSelect = (address: string) => {
+    setSearchKeyword(address);
+    setShowAddressPicker(false);
+    // 跳转到酒店列表
+    navigation.navigate('HotelList', {
+      city: selectedCity,
+      keyword: address,
+    });
+  };
+
+  // 选择城市
+  const handleCitySelect = (cityName: string) => {
+    setSelectedCity(cityName);
+    setShowCityPicker(false);
+  };
+
+  // 搜索酒店
+  const handleSearch = () => {
+    if (searchKeyword.trim()) {
+      navigation.navigate('HotelList', {
+        city: selectedCity,
+        keyword: searchKeyword.trim(),
+      });
+    } else {
+      // 如果没有关键词，只按城市搜索
+      navigation.navigate('HotelList', {
+        city: selectedCity,
+        keyword: undefined,
+      });
+    }
+  };
+
+  // 定位当前城市
+  const handleLocate = async () => {
+    setLocating(true);
+    try {
+      console.log('开始定位...');
+      
+      // 请求定位权限
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      console.log('权限状态:', status);
+      
+      if (status !== 'granted') {
+        Alert.alert('权限不足', '需要定位权限才能获取当前位置，请在系统设置中开启定位权限');
+        return;
+      }
+
+      // 获取当前位置
+      console.log('正在获取位置...');
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      
+      console.log('获取到坐标:', location.coords.latitude, location.coords.longitude);
+
+      const currentLocation: LocationType = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      };
+
+      // 逆地理编码获取城市信息
+      console.log('正在逆地理编码...');
+      const addressInfo = await reverseGeocode(currentLocation);
+      console.log('地址信息:', addressInfo);
+      
+      if (addressInfo) {
+        // 优先使用区/县信息，如果没有则使用城市
+        let targetCity = addressInfo.district || addressInfo.city;
+        
+        if (targetCity) {
+          // 去掉"市"后缀
+          if (targetCity.endsWith('市')) {
+            targetCity = targetCity.slice(0, -1);
+          }
+          
+          console.log('目标城市:', targetCity);
+          
+          // 直接使用定位到的城市/区域
+          setSelectedCity(targetCity);
+          setSearchKeyword('');
+          Alert.alert('定位成功', `已切换到 ${targetCity}`);
+        } else {
+          Alert.alert('定位失败', '无法获取位置信息');
+        }
+      } else {
+        Alert.alert('定位失败', '无法获取位置信息，请检查网络');
+      }
+    } catch (error: any) {
+      console.error('定位失败:', error);
+      Alert.alert('定位失败', error.message || '请检查定位权限设置');
+    } finally {
+      setLocating(false);
+    }
+  };
+
+  const renderAddressItem = ({ item }: { item: string }) => (
     <TouchableOpacity
-      style={styles.hotelItem}
-      onPress={() => navigation.navigate('HotelDetail', { hotelId: item.id, hotel: item })}
+      style={styles.addressItem}
+      onPress={() => handleAddressSelect(item)}
     >
-      <Image
-        source={{ uri: item.images?.[0] || DEFAULT_HOTEL_IMAGE }}
-        style={styles.hotelImage}
-        resizeMode="cover"
-      />
-      <View style={styles.hotelInfo}>
-        <Text style={styles.hotelName} numberOfLines={1}>{item.name}</Text>
-        <Text style={styles.hotelAddress} numberOfLines={1}>{item.address}</Text>
-        <View style={styles.hotelMeta}>
-          <View style={styles.ratingContainer}>
-            <Icon name="star" size={16} color="#FF9800" />
-            <Text style={styles.rating}>{getRatingDisplay(item.rating)}</Text>
-            <Text style={styles.reviewCount}>({item.reviewCount}条评价)</Text>
-          </View>
-        </View>
-        <View style={styles.priceContainer}>
-          <Text style={styles.price}>{formatPrice(item.price)}</Text>
-          <Text style={styles.priceUnit}>起</Text>
-        </View>
-      </View>
+      <MaterialIcons name="location-on" size={20} color="#999" />
+      <Text style={styles.addressText}>{item}</Text>
     </TouchableOpacity>
   );
 
-  const renderFooter = () => {
-    if (!loading || hotels.length === 0) return null;
-    return (
-      <View style={styles.footer}>
-        <ActivityIndicator size="small" color="#1E90FF" />
-      </View>
-    );
-  };
-
   return (
     <View style={styles.container}>
-      <FlatList
-        data={hotels}
-        renderItem={renderHotelItem}
-        keyExtractor={(item) => item.id}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={renderFooter}
-        ListEmptyComponent={
-          loading ? null : (
-            <View style={styles.emptyContainer}>
-              <Icon name="hotel" size={64} color="#ccc" />
-              <Text style={styles.emptyText}>暂无酒店数据</Text>
+      {/* 搜索头部 */}
+      <View style={styles.searchHeader}>
+        {/* 城市选择 */}
+        <TouchableOpacity 
+          style={styles.citySelector}
+          onPress={() => setShowCityPicker(!showCityPicker)}
+        >
+          <Text style={styles.cityText}>{selectedCity}</Text>
+          <MaterialIcons name="arrow-drop-down" size={24} color="#333" />
+        </TouchableOpacity>
+
+        {/* 搜索框 */}
+        <TouchableOpacity 
+          style={styles.searchBox}
+          onPress={() => setShowAddressPicker(true)}
+        >
+          <MaterialIcons name="search" size={20} color="#999" />
+          <Text style={styles.searchPlaceholder}>
+            {searchKeyword || '搜索酒店位置'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 定位按钮 */}
+      <TouchableOpacity 
+        style={[styles.locationButton, locating && styles.locationButtonDisabled]} 
+        onPress={handleLocate}
+        disabled={locating}
+      >
+        {locating ? (
+          <ActivityIndicator size="small" color="#1E90FF" />
+        ) : (
+          <MaterialIcons name="my-location" size={20} color="#1E90FF" />
+        )}
+        <Text style={[styles.locationButtonText, locating && styles.locationButtonTextDisabled]}>
+          {locating ? '定位中...' : '定位当前位置'}
+        </Text>
+      </TouchableOpacity>
+
+      {/* 热门城市 */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>热门城市</Text>
+        <View style={styles.cityGrid}>
+          {hotCities.map((city) => (
+            <TouchableOpacity
+              key={city.id}
+              style={[styles.hotCityItem, selectedCity === city.name && styles.hotCityItemActive]}
+              onPress={() => {
+                setSelectedCity(city.name);
+                setSearchKeyword('');
+              }}
+            >
+              <Text style={[styles.hotCityText, selectedCity === city.name && styles.hotCityTextActive]}>
+                {city.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {/* 搜索按钮 */}
+      <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
+        <MaterialIcons name="search" size={24} color="#fff" />
+        <Text style={styles.searchButtonText}>搜索酒店</Text>
+      </TouchableOpacity>
+
+      {/* 底部提示 */}
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>
+          选择城市和位置，搜索附近酒店
+        </Text>
+      </View>
+
+      {/* 城市选择弹窗 */}
+      <Modal visible={showCityPicker} transparent animationType="slide">
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1}
+          onPress={() => setShowCityPicker(false)}
+        >
+          <View style={styles.cityPickerContainer}>
+            <View style={styles.cityPickerHeader}>
+              <Text style={styles.cityPickerTitle}>选择城市</Text>
+              <TouchableOpacity onPress={() => setShowCityPicker(false)}>
+                <MaterialIcons name="close" size={24} color="#666" />
+              </TouchableOpacity>
             </View>
-          )
-        }
-        contentContainerStyle={hotels.length === 0 ? styles.emptyList : undefined}
-      />
+            <ScrollView contentContainerStyle={styles.cityList}>
+              {SUPPORTED_CITIES.map((city) => (
+                <TouchableOpacity
+                  key={city.id}
+                  style={[styles.cityItem, selectedCity === city.name && styles.cityItemActive]}
+                  onPress={() => handleCitySelect(city.name)}
+                >
+                  <Text style={[styles.cityItemText, selectedCity === city.name && styles.cityItemTextActive]}>
+                    {city.name}
+                  </Text>
+                  {selectedCity === city.name && (
+                    <MaterialIcons name="check" size={18} color="#1E90FF" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* 地址搜索弹窗 */}
+      <Modal visible={showAddressPicker} transparent animationType="slide">
+        <View style={styles.addressModalContainer}>
+          <View style={styles.addressSearchBox}>
+            <TouchableOpacity onPress={() => setShowAddressPicker(false)}>
+              <MaterialIcons name="arrow-back" size={24} color="#333" />
+            </TouchableOpacity>
+            <TextInput
+              style={styles.addressInput}
+              placeholder="输入地址搜索酒店"
+              placeholderTextColor="#999"
+              value={searchKeyword}
+              onChangeText={handleKeywordChange}
+              autoFocus
+            />
+            {searchKeyword.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchKeyword('')}>
+                <MaterialIcons name="close" size={20} color="#999" />
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          {loadingSuggestions ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color="#1E90FF" />
+              <Text style={styles.loadingText}>搜索中...</Text>
+            </View>
+          ) : addressSuggestions.length > 0 ? (
+            <FlatList
+              data={addressSuggestions}
+              renderItem={renderAddressItem}
+              keyExtractor={(item, index) => `${item}-${index}`}
+              contentContainerStyle={styles.addressList}
+            />
+          ) : searchKeyword.length > 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>未找到相关地址</Text>
+            </View>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="search" size={48} color="#ccc" />
+              <Text style={styles.emptyText}>输入地址名称搜索</Text>
+            </View>
+          )}
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -100,90 +332,237 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  hotelItem: {
+  searchHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#fff',
-    margin: 10,
-    borderRadius: 10,
-    overflow: 'hidden',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
-  hotelImage: {
-    width: 120,
-    height: 120,
+  citySelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: 12,
+    borderRightWidth: 1,
+    borderRightColor: '#eee',
+    marginRight: 10,
   },
-  hotelInfo: {
-    flex: 1,
-    padding: 10,
-    justifyContent: 'space-between',
-  },
-  hotelName: {
+  cityText: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
   },
-  hotelAddress: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
-  },
-  hotelMeta: {
+  searchBox: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    height: 40,
   },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  rating: {
+  searchPlaceholder: {
+    marginLeft: 8,
     fontSize: 14,
-    color: '#FF9800',
-    fontWeight: 'bold',
-    marginLeft: 4,
-  },
-  reviewCount: {
-    fontSize: 12,
     color: '#999',
-    marginLeft: 4,
   },
-  priceContainer: {
+  locationButton: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    marginTop: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    paddingVertical: 12,
+    marginHorizontal: 16,
+    marginTop: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#1E90FF',
   },
-  price: {
-    fontSize: 18,
+  locationButtonText: {
+    marginLeft: 8,
+    fontSize: 14,
     color: '#1E90FF',
     fontWeight: 'bold',
   },
-  priceUnit: {
-    fontSize: 12,
+  locationButtonDisabled: {
+    backgroundColor: '#f0f0f0',
+    borderColor: '#ccc',
+  },
+  locationButtonTextDisabled: {
     color: '#999',
-    marginLeft: 4,
+  },
+  section: {
+    backgroundColor: '#fff',
+    padding: 16,
+    marginTop: 10,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 12,
+  },
+  cityGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  hotCityItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginRight: 10,
+    marginBottom: 10,
+    borderRadius: 20,
+    backgroundColor: '#f5f5f5',
+  },
+  hotCityItemActive: {
+    backgroundColor: '#1E90FF',
+  },
+  hotCityText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  hotCityTextActive: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  searchButton: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1E90FF',
+    marginHorizontal: 16,
+    marginTop: 20,
+    paddingVertical: 14,
+    borderRadius: 25,
+  },
+  searchButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginLeft: 8,
   },
   footer: {
-    padding: 10,
+    flex: 1,
+    justifyContent: 'flex-end',
+    paddingBottom: 40,
+  },
+  footerText: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+  },
+  // Modal 样式
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  cityPickerContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+  },
+  cityPickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  cityPickerTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  cityList: {
+    padding: 10,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  cityItem: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    margin: 4,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+  },
+  cityItemActive: {
+    backgroundColor: '#E6F7FF',
+  },
+  cityItemText: {
+    fontSize: 14,
+    color: '#666',
+    marginRight: 4,
+  },
+  cityItemTextActive: {
+    color: '#1E90FF',
+    fontWeight: 'bold',
+  },
+  // 地址搜索弹窗
+  addressModalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+    marginTop: 50,
+  },
+  addressSearchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    margin: 10,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    height: 44,
+  },
+  addressInput: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 16,
+    color: '#333',
+  },
+  addressList: {
+    padding: 10,
+  },
+  addressItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  addressText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#333',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#999',
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 100,
+    padding: 40,
   },
   emptyText: {
     marginTop: 10,
-    fontSize: 16,
+    fontSize: 14,
     color: '#999',
-  },
-  emptyList: {
-    flexGrow: 1,
   },
 });
 
 export default HomeScreen;
-

@@ -5,9 +5,10 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { MaterialIcons } from '@expo/vector-icons';
 
 import HomeScreen from '../screens/home/Home';
+import HotelListScreen from '../screens/home/HotelList';
 import SearchScreen from '../screens/search/Search';
 import FavoritesScreen from '../screens/favorites/Favorites';
 import ProfileScreen from '../screens/profile/Profile';
@@ -45,7 +46,7 @@ const MainTabs = () => {
               iconName = 'home';
           }
 
-          return <Icon name={iconName} size={size} color={color} />;
+          return <MaterialIcons name={iconName as any} size={size} color={color} />;
         },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.gray,
@@ -100,6 +101,11 @@ const MainNavigator = () => {
         name="MainTabs"
         component={MainTabs}
         options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="HotelList"
+        component={HotelListScreen}
+        options={{ title: '酒店列表' }}
       />
       <Stack.Screen
         name="HotelDetail"

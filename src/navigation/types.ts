@@ -19,6 +19,7 @@ export type AuthStackParamList = {
 export type MainStackParamList = {
   MainTabs: NavigatorScreenParams<MainTabParamList>;
   HotelDetail: { hotelId: string; hotel?: Hotel };
+  HotelList: { city?: string; keyword?: string };
   Search: undefined;
   Filter: { 
     currentParams: {
@@ -65,4 +66,5 @@ declare global {
     interface RootParamList extends MainStackParamList {}
   }
 }
+
 

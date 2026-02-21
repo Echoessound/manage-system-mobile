@@ -80,7 +80,7 @@ const apiClient = createApiClient();
  * 登录
  */
 export const login = async (data: LoginRequest): Promise<ApiResponse<{ token: string; user: User }>> => {
-  const response = await apiClient.post('/user/login', data);
+  const response = await apiClient.post('/auth/login', data);
   return response.data;
 };
 
@@ -88,7 +88,7 @@ export const login = async (data: LoginRequest): Promise<ApiResponse<{ token: st
  * 注册
  */
 export const register = async (data: RegisterRequest): Promise<ApiResponse<{ userId: string }>> => {
-  const response = await apiClient.post('/user/register', data);
+  const response = await apiClient.post('/auth/register', data);
   return response.data;
 };
 
@@ -96,7 +96,7 @@ export const register = async (data: RegisterRequest): Promise<ApiResponse<{ use
  * 发送验证码
  */
 export const sendVerificationCode = async (email: string): Promise<ApiResponse<null>> => {
-  const response = await apiClient.post('/user/sendCode', { email });
+  const response = await apiClient.post('/auth/sendCode', { email });
   return response.data;
 };
 
@@ -122,7 +122,8 @@ export const getCurrentUser = async (): Promise<ApiResponse<User>> => {
  * 获取酒店列表
  */
 export const getHotelList = async (params: HotelListParams): Promise<ApiResponse<PaginatedData<Hotel>>> => {
-  const response = await apiClient.get('/hotels', { params });
+  console.log('API call - getHotelList params:', params);
+  const response = await apiClient.get('/hotel/list', { params });
   return response.data;
 };
 
@@ -130,7 +131,7 @@ export const getHotelList = async (params: HotelListParams): Promise<ApiResponse
  * 获取酒店详情
  */
 export const getHotelDetail = async (hotelId: string): Promise<ApiResponse<Hotel>> => {
-  const response = await apiClient.get(`/hotels/${hotelId}`);
+  const response = await apiClient.get(`/hotel/${hotelId}`);
   return response.data;
 };
 
@@ -138,7 +139,7 @@ export const getHotelDetail = async (hotelId: string): Promise<ApiResponse<Hotel
  * 搜索酒店
  */
 export const searchHotels = async (keyword: string, params?: HotelListParams): Promise<ApiResponse<PaginatedData<Hotel>>> => {
-  const response = await apiClient.get('/hotels/search', {
+  const response = await apiClient.get('/hotel/search', {
     params: { keyword, ...params },
   });
   return response.data;
@@ -148,7 +149,7 @@ export const searchHotels = async (keyword: string, params?: HotelListParams): P
  * 按城市获取酒店
  */
 export const getHotelsByCity = async (city: string, params?: HotelListParams): Promise<ApiResponse<PaginatedData<Hotel>>> => {
-  const response = await apiClient.get('/hotels/city', {
+  const response = await apiClient.get('/hotel/city', {
     params: { city, ...params },
   });
   return response.data;
@@ -158,8 +159,8 @@ export const getHotelsByCity = async (city: string, params?: HotelListParams): P
  * 获取热门酒店
  */
 export const getPopularHotels = async (limit: number = 10): Promise<ApiResponse<Hotel[]>> => {
-  const response = await apiClient.get('/hotels/popular', {
-    params: { limit },
+  const response = await apiClient.get('/hotel/list', {
+    params: { limit, page: 1, pageSize: limit },
   });
   return response.data;
 };

@@ -14,7 +14,7 @@ import {
   Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { MaterialIcons } from '@expo/vector-icons';
 import { getFavorites, removeFavorite, getHotelMainImage } from '../../utils';
 import { formatPrice, getRatingDisplay } from '../../utils';
 import { FavoriteHotel, Hotel } from '../../types';
@@ -109,7 +109,7 @@ const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
           {item.address}
         </Text>
         <View style={styles.ratingContainer}>
-          <Icon name="star" size={14} color={colors.warning} />
+          <MaterialIcons name="star" size={14} color={colors.warning} />
           <Text style={styles.rating}>{getRatingDisplay(item.rating)}</Text>
           <Text style={styles.reviewCount}>({item.reviewCount}条评价)</Text>
         </View>
@@ -120,16 +120,16 @@ const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
       </View>
       <TouchableOpacity
         style={styles.favoriteButton}
-        onPress={() => handleRemoveFavorite(item.id)}
+        onPress={() => handleRemoveFavorite(item._id || item.id)}
       >
-        <Icon name="favorite" size={24} color={colors.secondary} />
+        <MaterialIcons name="favorite" size={24} color={colors.secondary} />
       </TouchableOpacity>
     </TouchableOpacity>
   );
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <Icon name="favorite-border" size={64} color={colors.gray} />
+      <MaterialIcons name="favorite-border" size={64} color={colors.gray} />
       <Text style={styles.emptyText}>暂无收藏</Text>
       <Text style={styles.emptySubtext}>快去发现喜欢的酒店吧</Text>
     </View>
@@ -140,7 +140,7 @@ const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
       <FlatList
         data={hotels}
         renderItem={renderHotelItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item._id || item.id}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={renderEmpty}
         refreshControl={
@@ -243,4 +243,5 @@ const styles = StyleSheet.create({
 });
 
 export default FavoritesScreen;
+
 

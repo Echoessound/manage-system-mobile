@@ -13,7 +13,7 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useSearchHotels } from '../../hooks';
 import { MainTabScreenProps } from '../../navigation/types';
 import { Hotel } from '../../types';
@@ -55,7 +55,7 @@ const SearchScreen: React.FC<Props> = ({ navigation }) => {
   const renderHotelItem = ({ item }: { item: Hotel }) => (
     <TouchableOpacity
       style={styles.hotelItem}
-      onPress={() => navigation.navigate('HotelDetail', { hotelId: item.id, hotel: item })}
+      onPress={() => navigation.navigate('HotelDetail', { hotelId: item._id || item.id, hotel: item })}
     >
       <Image
         source={{ uri: item.images?.[0] || DEFAULT_HOTEL_IMAGE }}
@@ -77,7 +77,7 @@ const SearchScreen: React.FC<Props> = ({ navigation }) => {
       style={styles.historyItem}
       onPress={() => handleSearch(item)}
     >
-      <Icon name="history" size={20} color={colors.gray} />
+      <MaterialIcons name="history" size={20} color={colors.gray} />
       <Text style={styles.historyText}>{item}</Text>
     </TouchableOpacity>
   );
@@ -88,7 +88,7 @@ const SearchScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <View style={styles.searchBar}>
-        <Icon name="search" size={20} color={colors.gray} />
+        <MaterialIcons name="search" size={20} color={colors.gray} />
         <TextInput
           style={styles.searchInput}
           placeholder="搜索酒店名称或地址"
@@ -98,7 +98,7 @@ const SearchScreen: React.FC<Props> = ({ navigation }) => {
         />
         {keyword.length > 0 && (
           <TouchableOpacity onPress={() => handleSearch('')}>
-            <Icon name="close" size={20} color={colors.gray} />
+            <MaterialIcons name="close" size={20} color={colors.gray} />
           </TouchableOpacity>
         )}
       </View>
@@ -129,10 +129,10 @@ const SearchScreen: React.FC<Props> = ({ navigation }) => {
         <FlatList
           data={results}
           renderItem={renderHotelItem}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item._id || item.id}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Icon name="search-off" size={64} color="#ccc" />
+              <MaterialIcons name="search-off" size={64} color="#ccc" />
               <Text style={styles.emptyText}>未找到相关酒店</Text>
             </View>
           }
@@ -243,4 +243,5 @@ const styles = StyleSheet.create({
 });
 
 export default SearchScreen;
+
 

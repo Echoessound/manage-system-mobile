@@ -14,7 +14,7 @@ import {
   FlatList,
   Alert,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { MaterialIcons } from '@expo/vector-icons';
 import { MainStackScreenProps } from '../../navigation/types';
 import { useHotelDetail, useFavorite } from '../../hooks';
 import { formatPrice, getRatingDisplay, isValidEmail } from '../../utils';
@@ -39,7 +39,7 @@ const HotelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         title: currentHotel.name,
         headerRight: () => (
           <TouchableOpacity onPress={handleToggleFavorite}>
-            <Icon
+            <MaterialIcons
               name={isFavorite ? 'favorite' : 'favorite-border'}
               size={24}
               color={isFavorite ? colors.secondary : colors.white}
@@ -101,7 +101,7 @@ const HotelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         </Text>
         <View style={styles.roomDetails}>
           <Text style={styles.roomCapacity}>
-            <Icon name="person" size={14} color={colors.textSecondary} /> 
+            <MaterialIcons name="person" size={14} color={colors.textSecondary} /> 
             {' '}{item.capacity}人
           </Text>
           <Text style={styles.roomBed}>
@@ -166,7 +166,7 @@ const HotelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
 
         <View style={styles.addressRow}>
-          <Icon name="location-on" size={18} color={colors.primary} />
+          <MaterialIcons name="location-on" size={18} color={colors.primary} />
           <Text style={styles.addressText}>{currentHotel.address}</Text>
         </View>
 
@@ -194,7 +194,7 @@ const HotelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <View style={styles.amenitiesGrid}>
             {currentHotel.amenities.map((amenityId) => (
               <View key={amenityId} style={styles.amenityItem}>
-                <Icon name="check-circle" size={16} color={colors.success} />
+                <MaterialIcons name="check-circle" size={16} color={colors.success} />
                 <Text style={styles.amenityText}>
                   {getAmenityName(amenityId)}
                 </Text>
@@ -211,7 +211,7 @@ const HotelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <FlatList
             data={hotel.roomTypes}
             renderItem={renderRoomType}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item._id || item.id}
             scrollEnabled={false}
           />
         </View>
@@ -223,7 +223,7 @@ const HotelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           style={styles.favoriteButton}
           onPress={handleToggleFavorite}
         >
-          <Icon
+          <MaterialIcons
             name={isFavorite ? 'favorite' : 'favorite-border'}
             size={24}
             color={isFavorite ? colors.secondary : colors.gray}
@@ -489,4 +489,5 @@ const styles = StyleSheet.create({
 });
 
 export default HotelDetailScreen;
+
 

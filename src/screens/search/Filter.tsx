@@ -12,7 +12,7 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { MaterialIcons } from '@expo/vector-icons';
 import { MainStackScreenProps } from '../../navigation/types';
 import { colors, AVAILABLE_AMENITIES, SUPPORTED_CITIES } from '../../constants';
 
@@ -168,7 +168,7 @@ const FilterScreen: React.FC<Props> = ({ route, navigation }) => {
                 ]}
                 onPress={() => handleAmenityToggle(amenity.id)}
               >
-                <Icon
+                <MaterialIcons
                   name={selectedAmenities.includes(amenity.id) ? 'check-box' : 'check-box-outline-blank'}
                   size={18}
                   color={selectedAmenities.includes(amenity.id) ? colors.primary : colors.gray}
@@ -351,4 +351,5 @@ const styles = StyleSheet.create({
 });
 
 export default FilterScreen;
+
 
