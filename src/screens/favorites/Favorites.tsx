@@ -11,7 +11,6 @@ import {
   TouchableOpacity,
   Image,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -24,9 +23,14 @@ import { getHotelDetail } from '../../api';
 
 type Props = MainTabScreenProps<'Favorites'>;
 
+// 带原始hotelId的酒店数据
+interface HotelWithOriginId extends Hotel {
+  originHotelId: string;
+}
+
 const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
   const [favorites, setFavorites] = useState<FavoriteHotel[]>([]);
-  const [hotels, setHotels] = useState<Hotel[]>([]);
+  const [hotels, setHotels] = useState<HotelWithOriginId[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -34,23 +38,29 @@ const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
     setLoading(true);
     try {
       const favs = await getFavorites();
+      console.log('获取到的收藏列表:', favs);
       setFavorites(favs);
       
-      // 加载每个酒店的详情
+      // 加载每个酒店的详情，保留原始的hotelId
       const hotelPromises = favs.map(async (fav) => {
         try {
+          console.log('正在获取酒店详情, hotelId:', fav.hotelId);
           const response = await getHotelDetail(fav.hotelId);
+          console.log('酒店详情响应:', response);
           if (response.code === 200 && response.data) {
-            return response.data;
+            // 将原始hotelId附加到酒店对象上
+            return { ...response.data, originHotelId: fav.hotelId };
           }
           return null;
-        } catch {
+        } catch (err) {
+          console.error('获取酒店详情失败:', err);
           return null;
         }
       });
       
       const hotelResults = await Promise.all(hotelPromises);
-      setHotels(hotelResults.filter((h): h is Hotel => h !== null));
+      console.log('所有酒店数据:', hotelResults);
+      setHotels(hotelResults.filter((h): h is HotelWithOriginId => h !== null));
     } catch (error) {
       console.error('加载收藏失败:', error);
     } finally {
@@ -70,29 +80,23 @@ const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
     setRefreshing(false);
   };
 
-  const handleRemoveFavorite = (hotelId: string) => {
-    Alert.alert(
-      '提示',
-      '确定要取消收藏吗？',
-      [
-        { text: '取消', style: 'cancel' },
-        {
-          text: '确定',
-          style: 'destructive',
-          onPress: async () => {
-            await removeFavorite(hotelId);
-            loadFavorites();
-          },
-        },
-      ]
-    );
+  const handleRemoveFavorite = async (hotelId: string) => {
+    console.log('取消收藏, hotelId:', hotelId);
+    try {
+      await removeFavorite(hotelId);
+      // 从列表中移除该酒店
+      setHotels(prev => prev.filter(h => h.originHotelId !== hotelId));
+      console.log('取消收藏成功');
+    } catch (error) {
+      console.error('取消收藏失败:', error);
+    }
   };
 
-  const handleHotelPress = (hotel: Hotel) => {
-    navigation.navigate('HotelDetail', { hotelId: hotel.id, hotel });
+  const handleHotelPress = (hotel: HotelWithOriginId) => {
+    navigation.navigate('HotelDetail', { hotelId: hotel.originHotelId, hotel });
   };
 
-  const renderHotelItem = ({ item }: { item: Hotel }) => (
+  const renderHotelItem = ({ item }: { item: HotelWithOriginId }) => (
     <TouchableOpacity
       style={styles.hotelItem}
       onPress={() => handleHotelPress(item)}
@@ -120,7 +124,7 @@ const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
       </View>
       <TouchableOpacity
         style={styles.favoriteButton}
-        onPress={() => handleRemoveFavorite(item._id || item.id)}
+        onPress={() => handleRemoveFavorite(item.originHotelId)}
       >
         <MaterialIcons name="favorite" size={24} color={colors.secondary} />
       </TouchableOpacity>
@@ -140,7 +144,7 @@ const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
       <FlatList
         data={hotels}
         renderItem={renderHotelItem}
-        keyExtractor={(item) => item._id || item.id}
+        keyExtractor={(item) => item.originHotelId}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={renderEmpty}
         refreshControl={

@@ -120,8 +120,13 @@ export const addFavorite = async (hotelId: string): Promise<void> => {
 export const removeFavorite = async (hotelId: string): Promise<void> => {
   try {
     const favorites = await getFavorites();
+    console.log('当前收藏列表:', favorites);
+    console.log('要移除的酒店ID:', hotelId);
+    // 过滤掉要移除的酒店ID
     const filtered = favorites.filter(f => f.hotelId !== hotelId);
+    console.log('过滤后的收藏列表:', filtered);
     await AsyncStorage.setItem(STORAGE_KEYS.FAVORITES, JSON.stringify(filtered));
+    console.log('移除收藏成功');
   } catch (error) {
     console.error('移除收藏失败:', error);
   }

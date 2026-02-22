@@ -18,8 +18,7 @@ import {
 import * as Location from 'expo-location';
 import { MaterialIcons } from '@expo/vector-icons';
 import { MainTabScreenProps } from '../../navigation/types';
-import { SUPPORTED_CITIES } from '../../constants';
-import { searchAddress, geocodeAddress, reverseGeocode, Location as LocationType } from '../../services/location';
+import { searchAddress, geocodeAddress, reverseGeocode, getAllChinaCities, Location as LocationType, CityInfo } from '../../services/location';
 
 type Props = MainTabScreenProps<'Home'>;
 
@@ -31,9 +30,54 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [addressSuggestions, setAddressSuggestions] = useState<string[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [cityList, setCityList] = useState<CityInfo[]>([]);
+  const [loadingCities, setLoadingCities] = useState(true);
 
-  // 热门城市
-  const hotCities = SUPPORTED_CITIES.slice(0, 8);
+  // 加载城市列表
+  useEffect(() => {
+    const loadCities = async () => {
+      try {
+        const cities = await getAllChinaCities();
+        if (cities.length > 0) {
+          setCityList(cities);
+        } else {
+          // 如果API失败，使用备用城市列表
+          console.log('使用备用城市列表');
+        }
+      } catch (error) {
+        console.error('加载城市列表失败:', error);
+      } finally {
+        setLoadingCities(false);
+      }
+    };
+    loadCities();
+  }, []);
+
+  // 热门城市（取前8个城市）
+  const hotCities = cityList.slice(0, 8);
+
+  // 过滤有有效拼音首字母的城市，并按拼音首字母排序
+  const sortedCityList = [...cityList]
+    .filter(city => {
+      const pinyin = city.pinyin || city.name;
+      return /^[A-Za-z]/.test(pinyin);
+    })
+    .sort((a, b) => 
+      (a.pinyin || a.name).localeCompare(b.pinyin || b.name, 'en-US')
+    );
+
+  // 按拼音首字母分组的城市列表
+  const groupedCities = sortedCityList.reduce((groups, city) => {
+    const pinyin = city.pinyin || city.name;
+    const firstLetter = pinyin.charAt(0).toUpperCase();
+    if (!groups[firstLetter]) {
+      groups[firstLetter] = [];
+    }
+    groups[firstLetter].push(city);
+    return groups;
+  }, {} as Record<string, typeof cityList>);
+
+  const citySections = Object.keys(groupedCities).sort();
 
   // 搜索地址建议
   const handleAddressSearch = useCallback(async (keyword: string) => {
@@ -258,20 +302,40 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               </TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={styles.cityList}>
-              {SUPPORTED_CITIES.map((city) => (
-                <TouchableOpacity
-                  key={city.id}
-                  style={[styles.cityItem, selectedCity === city.name && styles.cityItemActive]}
-                  onPress={() => handleCitySelect(city.name)}
-                >
-                  <Text style={[styles.cityItemText, selectedCity === city.name && styles.cityItemTextActive]}>
-                    {city.name}
-                  </Text>
-                  {selectedCity === city.name && (
-                    <MaterialIcons name="check" size={18} color="#1E90FF" />
-                  )}
-                </TouchableOpacity>
-              ))}
+              {loadingCities ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color="#1E90FF" />
+                  <Text style={styles.loadingText}>加载城市中...</Text>
+                </View>
+              ) : cityList.length === 0 ? (
+                <View style={styles.loadingContainer}>
+                  <Text style={styles.loadingText}>暂无城市数据</Text>
+                </View>
+              ) : (
+                <>
+                  {citySections.map((letter) => (
+                    <View key={letter} style={styles.citySection}>
+                      <Text style={styles.citySectionLetter}>{letter}</Text>
+                      <View style={styles.citySectionContent}>
+                        {groupedCities[letter].map((city) => (
+                          <TouchableOpacity
+                            key={city.id}
+                            style={[styles.cityItem, selectedCity === city.name && styles.cityItemActive]}
+                            onPress={() => handleCitySelect(city.name)}
+                          >
+                            <Text style={[styles.cityItemText, selectedCity === city.name && styles.cityItemTextActive]}>
+                              {city.name}
+                            </Text>
+                            {selectedCity === city.name && (
+                              <MaterialIcons name="check" size={18} color="#1E90FF" />
+                            )}
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  ))}
+                </>
+              )}
             </ScrollView>
           </View>
         </TouchableOpacity>
@@ -505,6 +569,24 @@ const styles = StyleSheet.create({
     color: '#1E90FF',
     fontWeight: 'bold',
   },
+  // 城市分组样式
+  citySection: {
+    width: '100%',
+    marginBottom: 10,
+  },
+  citySectionLetter: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#1E90FF',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: '#f5f5f5',
+  },
+  citySectionContent: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 5,
+  },
   // 地址搜索弹窗
   addressModalContainer: {
     flex: 1,
@@ -550,8 +632,8 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginLeft: 10,
+    color: '#666',
     fontSize: 14,
-    color: '#999',
   },
   emptyContainer: {
     alignItems: 'center',
