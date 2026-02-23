@@ -2,7 +2,7 @@
  * 定位服务 - 高德地图
  */
 
-import { AMAP_KEY, AMAP_GEO_URL, AMAP_DISTRICT_URL } from '../constants';
+import { AMAP_REST_KEY, AMAP_GEO_URL, AMAP_DISTRICT_URL } from '../constants';
 
 // 类型定义
 export interface Location {
@@ -26,7 +26,7 @@ export interface GeocodingResult {
 export const geocodeAddress = async (address: string, city?: string): Promise<Location | null> => {
   try {
     const params = new URLSearchParams({
-      key: AMAP_KEY,
+      key: AMAP_REST_KEY,
       address: address,
       ...(city && { city: city }),
     });
@@ -54,7 +54,7 @@ export const geocodeAddress = async (address: string, city?: string): Promise<Lo
 export const reverseGeocode = async (location: Location): Promise<GeocodingResult | null> => {
   try {
     const params = new URLSearchParams({
-      key: AMAP_KEY,
+      key: AMAP_REST_KEY,  // 使用 Web 服务 API Key
       location: `${location.longitude},${location.latitude}`,
     });
 
@@ -93,7 +93,7 @@ export const reverseGeocode = async (location: Location): Promise<GeocodingResul
 export const getCityCenter = async (cityName: string): Promise<Location | null> => {
   try {
     const params = new URLSearchParams({
-      key: AMAP_KEY,
+      key: AMAP_REST_KEY,
       city: cityName,
       citylimit: 'true',
     });
@@ -121,7 +121,7 @@ export const getCityCenter = async (cityName: string): Promise<Location | null> 
 export const searchAddress = async (keyword: string, city?: string): Promise<string[]> => {
   try {
     const params = new URLSearchParams({
-      key: AMAP_KEY,
+      key: AMAP_REST_KEY,
       keywords: keyword,
       types: '商务住宅|风景名胜|科教文化|交通设施',
       city: city || '',
@@ -331,19 +331,65 @@ const getPinyin = (cityName: string): string => {
 
 // 缓存城市数据
 let cachedCities: CityInfo[] | null = null;
+const CITY_CACHE_KEY = 'china_cities_cache';
+const CITY_CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7天过期
+
+// 从本地存储加载缓存
+const loadCityCacheFromStorage = async (): Promise<CityInfo[] | null> => {
+  try {
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    const cached = await AsyncStorage.getItem(CITY_CACHE_KEY);
+    if (cached) {
+      const { data, timestamp } = JSON.parse(cached);
+      // 检查是否过期
+      if (Date.now() - timestamp < CITY_CACHE_EXPIRY) {
+        console.log('从本地存储加载城市缓存成功');
+        return data;
+      }
+    }
+  } catch (error) {
+    console.error('加载城市缓存失败:', error);
+  }
+  return null;
+};
+
+// 保存缓存到本地存储
+const saveCityCacheToStorage = async (cities: CityInfo[]): Promise<void> => {
+  try {
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    await AsyncStorage.setItem(CITY_CACHE_KEY, JSON.stringify({
+      data: cities,
+      timestamp: Date.now(),
+    }));
+    console.log('城市缓存已保存到本地存储');
+  } catch (error) {
+    console.error('保存城市缓存失败:', error);
+  }
+};
 
 /**
  * 获取所有中国城市列表（从高德地图API）
  */
 export const getAllChinaCities = async (): Promise<CityInfo[]> => {
-  // 如果有缓存，直接返回
+  // 如果有内存缓存，直接返回
   if (cachedCities && cachedCities.length > 0) {
     return cachedCities;
   }
 
+  // 尝试从本地存储加载缓存
+  try {
+    const storageCache = await loadCityCacheFromStorage();
+    if (storageCache && storageCache.length > 0) {
+      cachedCities = storageCache;
+      return cachedCities;
+    }
+  } catch (error) {
+    console.error('从存储加载缓存失败，继续请求API:', error);
+  }
+
   try {
     const params = new URLSearchParams({
-      key: AMAP_KEY,
+      key: AMAP_REST_KEY,
       keywords: '中国',
       subdistrict: '2', // 获取省份和城市
       extensions: 'base',
@@ -380,8 +426,12 @@ export const getAllChinaCities = async (): Promise<CityInfo[]> => {
       // 按城市名称排序
       cities.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
 
-      // 缓存结果
+      // 缓存结果到内存
       cachedCities = cities;
+
+      // 保存到本地存储
+      saveCityCacheToStorage(cities);
+
       console.log('获取到城市数量:', cities.length);
 
       return cities;
@@ -412,5 +462,12 @@ export const getCityInfo = (cityName: string, cities: CityInfo[]): CityInfo | un
  */
 export const clearCityCache = (): void => {
   cachedCities = null;
+  // 清除本地存储的缓存
+  try {
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    AsyncStorage.removeItem(CITY_CACHE_KEY).catch(() => {});
+  } catch (error) {
+    // 忽略错误
+  }
 };
 

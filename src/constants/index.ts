@@ -31,8 +31,11 @@ export const API_BASE_URL = 'http://localhost:8080';
 /** API 超时时间（毫秒） */
 export const API_TIMEOUT = 30000;
 
-/** 高德地图 Web API Key */
+/** 高德地图 JS API Key（用于地图显示） */
 export const AMAP_KEY = 'd4a40190ad0e21c36b11246dfa469200';
+
+/** 高德地图 Web 服务 API Key（用于逆地理编码 REST API） */
+export const AMAP_REST_KEY = 'ec60beb00a8047166085fd4e9395b0fa';
 
 /** 高德地图服务地址 */
 export const AMAP_GEO_URL = 'https://restapi.amap.com/v3/geocode/geo';

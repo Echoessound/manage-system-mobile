@@ -60,6 +60,7 @@ export interface HotelAmenity {
 /** 酒店基本信息 */
 export interface Hotel {
   id: string;
+  _id?: string;
   name: string;
   description?: string;
   address: string;
@@ -82,6 +83,8 @@ export interface Hotel {
 export interface HotelListParams {
   city?: string;
   keyword?: string;
+  checkInDate?: string;
+  checkOutDate?: string;
   minPrice?: number;
   maxPrice?: number;
   rating?: number;
@@ -152,6 +155,7 @@ export interface ApiResponse<T = any> {
   message: string;
   data: T;
 }
+
 
 
 

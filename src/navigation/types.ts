@@ -19,7 +19,16 @@ export type AuthStackParamList = {
 export type MainStackParamList = {
   MainTabs: NavigatorScreenParams<MainTabParamList>;
   HotelDetail: { hotelId: string; hotel?: Hotel };
-  HotelList: { city?: string; keyword?: string };
+  HotelList: { 
+    city?: string; 
+    keyword?: string;
+    checkInDate?: string;
+    checkOutDate?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    rating?: number;
+    amenities?: string[];
+  };
   Search: undefined;
   Filter: { 
     currentParams: {

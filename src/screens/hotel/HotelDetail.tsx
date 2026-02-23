@@ -2,7 +2,7 @@
  * 酒店详情屏幕
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -75,7 +75,7 @@ const HotelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   if (!currentHotel) return null;
 
-  const images = currentHotel.images?.length > 0 
+  const images = currentHotel?.images?.length > 0 
     ? currentHotel.images 
     : [DEFAULT_HOTEL_IMAGE];
 
@@ -129,7 +129,7 @@ const HotelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         <FlatList
           data={images}
           renderItem={renderImage}
-          keyExtractor={(_, index) => index.toString()}
+          keyExtractor={(item, index) => item || `image-${index}`}
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
@@ -205,13 +205,13 @@ const HotelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       )}
 
       {/* 房型列表 */}
-      {hotel?.roomTypes && hotel.roomTypes.length > 0 && (
+      {(hotel?.roomTypes || []).length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>房型列表</Text>
           <FlatList
-            data={hotel.roomTypes}
+            data={hotel?.roomTypes || []}
             renderItem={renderRoomType}
-            keyExtractor={(item) => item._id || item.id}
+            keyExtractor={(item, index) => item?._id || item?.id || `room-${index}`}
             scrollEnabled={false}
           />
         </View>

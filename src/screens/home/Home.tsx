@@ -2,7 +2,7 @@
  * 首页 - 搜索界面
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,13 +14,20 @@ import {
   FlatList,
   Modal,
   Alert,
+  Dimensions,
+  Image,
 } from 'react-native';
 import * as Location from 'expo-location';
 import { MaterialIcons } from '@expo/vector-icons';
 import { MainTabScreenProps } from '../../navigation/types';
 import { searchAddress, geocodeAddress, reverseGeocode, getAllChinaCities, Location as LocationType, CityInfo } from '../../services/location';
+import { getHotelList } from '../../api';
+import { Hotel } from '../../types';
 
 type Props = MainTabScreenProps<'Home'>;
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const BANNER_HEIGHT = 180;
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [selectedCity, setSelectedCity] = useState('北京');
@@ -32,6 +39,41 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [locating, setLocating] = useState(false);
   const [cityList, setCityList] = useState<CityInfo[]>([]);
   const [loadingCities, setLoadingCities] = useState(true);
+  
+  // 日期选择状态
+  const [checkInDate, setCheckInDate] = useState<Date>(new Date());
+  const [checkOutDate, setCheckOutDate] = useState<Date>(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    return tomorrow;
+  });
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectingCheckIn, setSelectingCheckIn] = useState(true);
+
+  // 格式化日期显示
+  const dateDisplayText = useMemo(() => {
+    const inDate = new Date(checkInDate);
+    const outDate = new Date(checkOutDate);
+    inDate.setHours(0, 0, 0, 0);
+    outDate.setHours(0, 0, 0, 0);
+    return `${inDate.getMonth() + 1}/${inDate.getDate()} - ${outDate.getMonth() + 1}/${outDate.getDate()}`;
+  }, [checkInDate, checkOutDate]);
+
+  // 筛选条件状态
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [filterParams, setFilterParams] = useState({
+    minPrice: 0,
+    maxPrice: 1000,
+    rating: 0,
+    amenities: [] as string[],
+  });
+  
+  // Banner 轮播图状态
+  const [bannerHotels, setBannerHotels] = useState<Hotel[]>([]);
+  const [bannerIndex, setBannerIndex] = useState(0);
+  const bannerRef = useRef<FlatList>(null);
+  const [autoPlay, setAutoPlay] = useState(true);
 
   // 加载城市列表
   useEffect(() => {
@@ -53,8 +95,38 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     loadCities();
   }, []);
 
-  // 热门城市（取前8个城市）
-  const hotCities = cityList.slice(0, 8);
+  // 获取热门酒店数据用于Banner轮播
+  useEffect(() => {
+    const fetchBannerHotels = async () => {
+      try {
+        const response = await getHotelList({
+          page: 1,
+          pageSize: 5,
+        });
+        if (response.data && response.data.items) {
+          setBannerHotels(response.data.items);
+        }
+      } catch (error) {
+        console.error('获取热门酒店失败:', error);
+      }
+    };
+    fetchBannerHotels();
+  }, []);
+
+  // Banner 自动轮播
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (bannerHotels.length > 0 && autoPlay) {
+      interval = setInterval(() => {
+        setBannerIndex((prev) => {
+          const nextIndex = (prev + 1) % bannerHotels.length;
+          bannerRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+          return nextIndex;
+        });
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [bannerHotels.length, autoPlay]);
 
   // 过滤有有效拼音首字母的城市，并按拼音首字母排序
   const sortedCityList = [...cityList]
@@ -123,18 +195,49 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     setShowCityPicker(false);
   };
 
+  // 点击Banner跳转到酒店详情
+  const handleBannerPress = (hotel: Hotel) => {
+    const hotelId = hotel.id;
+    if (hotelId) {
+      navigation.navigate('HotelDetail', { hotelId, hotel });
+    }
+  };
+
+  // Banner 滚动时更新索引
+  const handleBannerScroll = (event: any) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const index = Math.round(offsetX / SCREEN_WIDTH);
+    setBannerIndex(index);
+  };
+
   // 搜索酒店
   const handleSearch = () => {
+    const formatDate = (date: Date) => {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    };
+
     if (searchKeyword.trim()) {
       navigation.navigate('HotelList', {
         city: selectedCity,
         keyword: searchKeyword.trim(),
+        checkInDate: formatDate(checkInDate),
+        checkOutDate: formatDate(checkOutDate),
+        minPrice: filterParams.minPrice,
+        maxPrice: filterParams.maxPrice,
+        rating: filterParams.rating,
+        amenities: filterParams.amenities,
       });
     } else {
       // 如果没有关键词，只按城市搜索
       navigation.navigate('HotelList', {
         city: selectedCity,
         keyword: undefined,
+        checkInDate: formatDate(checkInDate),
+        checkOutDate: formatDate(checkOutDate),
+        minPrice: filterParams.minPrice,
+        maxPrice: filterParams.maxPrice,
+        rating: filterParams.rating,
+        amenities: filterParams.amenities,
       });
     }
   };
@@ -253,25 +356,76 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
       </TouchableOpacity>
 
-      {/* 热门城市 */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>热门城市</Text>
-        <View style={styles.cityGrid}>
-          {hotCities.map((city) => (
-            <TouchableOpacity
-              key={city.id}
-              style={[styles.hotCityItem, selectedCity === city.name && styles.hotCityItemActive]}
-              onPress={() => {
-                setSelectedCity(city.name);
-                setSearchKeyword('');
-              }}
-            >
-              <Text style={[styles.hotCityText, selectedCity === city.name && styles.hotCityTextActive]}>
-                {city.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
+      {/* Banner 轮播图 */}
+      {bannerHotels.length > 0 && (
+        <View style={styles.bannerContainer}>
+          <FlatList
+            ref={bannerRef}
+            data={bannerHotels}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={handleBannerScroll}
+            onScrollBeginDrag={() => setAutoPlay(false)}
+            onScrollEndDrag={() => setAutoPlay(true)}
+            renderItem={({ item }) => (
+              <TouchableOpacity 
+                activeOpacity={0.9}
+                onPress={() => handleBannerPress(item)}
+              >
+                <Image
+                  source={{ uri: item.images?.[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800' }}
+                  style={styles.bannerImage}
+                  resizeMode="cover"
+                />
+                <View style={styles.bannerOverlay}>
+                  <Text style={styles.bannerTitle} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <Text style={styles.bannerAddress} numberOfLines={1}>
+                    {item.address}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            keyExtractor={(item) => item.id || item._id}
+          />
+          {/* 轮播指示器 */}
+          <View style={styles.bannerPagination}>
+            {bannerHotels.map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.bannerDot,
+                  index === bannerIndex && styles.bannerDotActive,
+                ]}
+              />
+            ))}
+          </View>
         </View>
+      )}
+
+      {/* 日期选择和筛选条件 */}
+      <View style={styles.dateFilterContainer}>
+        {/* 日期选择 */}
+        <TouchableOpacity 
+          style={styles.dateButton}
+          onPress={() => setShowDatePicker(true)}
+        >
+          <MaterialIcons name="date-range" size={20} color="#1E90FF" />
+          <Text style={styles.dateButtonText}>
+            {dateDisplayText}
+          </Text>
+        </TouchableOpacity>
+
+        {/* 筛选按钮 */}
+        <TouchableOpacity 
+          style={styles.filterButton}
+          onPress={() => setShowFilterModal(true)}
+        >
+          <MaterialIcons name="filter-list" size={20} color="#1E90FF" />
+          <Text style={styles.filterButtonText}>筛选</Text>
+        </TouchableOpacity>
       </View>
 
       {/* 搜索按钮 */}
@@ -387,6 +541,255 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           )}
         </View>
       </Modal>
+
+      {/* 日期选择弹窗 */}
+      <Modal visible={showDatePicker} transparent animationType="slide">
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1}
+          onPress={() => setShowDatePicker(false)}
+        >
+          <View style={styles.datePickerContainer}>
+            <View style={styles.datePickerHeader}>
+              <Text style={styles.datePickerTitle}>选择日期</Text>
+              <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                <MaterialIcons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.datePickerContent}>
+              <TouchableOpacity 
+                style={[styles.dateTypeButton, selectingCheckIn && styles.dateTypeButtonActive]}
+                onPress={() => setSelectingCheckIn(true)}
+              >
+                <Text style={[styles.dateTypeText, selectingCheckIn && styles.dateTypeTextActive]}>入住</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.dateTypeButton, !selectingCheckIn && styles.dateTypeButtonActive]}
+                onPress={() => setSelectingCheckIn(false)}
+              >
+                <Text style={[styles.dateTypeText, !selectingCheckIn && styles.dateTypeTextActive]}>退房</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.dateScrollView}>
+              {Array.from({ length: 30 }, (_, i) => {
+                const date = new Date();
+                date.setHours(0, 0, 0, 0);
+                date.setDate(date.getDate() + i);
+                const checkIn = new Date(checkInDate);
+                checkIn.setHours(0, 0, 0, 0);
+                const checkOut = new Date(checkOutDate);
+                checkOut.setHours(0, 0, 0, 0);
+                const isSelected = selectingCheckIn
+                  ? date.getTime() === checkIn.getTime()
+                  : date.getTime() === checkOut.getTime();
+                const isBefore = selectingCheckIn
+                  ? date.getTime() < checkIn.getTime()
+                  : date.getTime() <= checkIn.getTime();
+                
+                return (
+                  <TouchableOpacity
+                    key={i}
+                    style={[styles.dateItem, isSelected && styles.dateItemSelected, isBefore && styles.dateItemDisabled]}
+                    onPress={() => {
+                      // 获取不带时间的日期
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      const selectedDate = new Date(today);
+                      selectedDate.setDate(selectedDate.getDate() + i);
+
+                      const currentCheckIn = new Date(checkInDate);
+                      currentCheckIn.setHours(0, 0, 0, 0);
+                      const currentCheckOut = new Date(checkOutDate);
+                      currentCheckOut.setHours(0, 0, 0, 0);
+
+                      if (selectingCheckIn) {
+                        // 设置新的入住日期（清除时间）
+                        const newCheckIn = new Date(selectedDate);
+                        setCheckInDate(newCheckIn);
+                        // 切换到选择退房日期
+                        setSelectingCheckIn(false);
+                        // 如果新入住日期 >= 退房日期，自动调整退房日期
+                        if (newCheckIn.getTime() >= currentCheckOut.getTime()) {
+                          const newCheckOut = new Date(newCheckIn);
+                          newCheckOut.setDate(newCheckOut.getDate() + 1);
+                          setCheckOutDate(newCheckOut);
+                        }
+                      } else {
+                        // 设置新的退房日期
+                        const newCheckOut = new Date(selectedDate);
+                        if (newCheckOut.getTime() > currentCheckIn.getTime()) {
+                          setCheckOutDate(newCheckOut);
+                          // 退房日期选择后自动关闭弹窗
+                          setShowDatePicker(false);
+                        }
+                      }
+                    }}
+                    disabled={isBefore}
+                  >
+                    <Text style={[styles.dateItemText, isSelected && styles.dateItemTextSelected, isBefore && styles.dateItemTextDisabled]}>
+                      {date.getMonth() + 1}月{date.getDate()}日
+                    </Text>
+                    <Text style={[styles.dateItemWeek, isSelected && styles.dateItemTextSelected]}>
+                      {['周日', '周一', '周二', '周三', '周四', '周五', '周六'][date.getDay()]}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            
+            <TouchableOpacity 
+              style={styles.dateConfirmButton}
+              onPress={() => setShowDatePicker(false)}
+            >
+              <Text style={styles.dateConfirmButtonText}>确定</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* 筛选弹窗 */}
+      <Modal visible={showFilterModal} transparent animationType="slide">
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1}
+          onPress={() => setShowFilterModal(false)}
+        >
+          <View style={styles.filterModalContainer}>
+            <View style={styles.filterModalHeader}>
+              <Text style={styles.filterModalTitle}>筛选条件</Text>
+              <TouchableOpacity onPress={() => setShowFilterModal(false)}>
+                <MaterialIcons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.filterModalContent}>
+              {/* 价格区间 */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>价格区间</Text>
+                <View style={styles.priceRange}>
+                  <Text style={styles.priceText}>¥{filterParams.minPrice}</Text>
+                  <View style={styles.priceSlider}>
+                    <View 
+                      style={[
+                        styles.priceTrack, 
+                        { width: `${(filterParams.minPrice / 1000) * 100}%` }
+                      ]} 
+                    />
+                    <TouchableOpacity 
+                      style={[
+                        styles.priceThumb, 
+                        { left: `${(filterParams.minPrice / 1000) * 100}%` }
+                      ]}
+                      onPress={() => {}}
+                    />
+                  </View>
+                  <Text style={styles.priceText}>¥{filterParams.maxPrice}</Text>
+                </View>
+                <View style={styles.priceInputs}>
+                  <TouchableOpacity 
+                    style={styles.priceInputButton}
+                    onPress={() => setFilterParams({ ...filterParams, minPrice: Math.max(0, filterParams.minPrice - 100) })}
+                  >
+                    <MaterialIcons name="remove" size={20} color="#1E90FF" />
+                  </TouchableOpacity>
+                  <Text style={styles.price}>¥{filterParams.minPrice} - ¥{filterParams.maxPrice}</Text>
+                  <TouchableOpacity 
+                    style={styles.priceInputButton}
+                    onPress={() => setFilterParams({ ...filterParams, maxPrice: Math.min(10000, filterParams.maxPrice + 100) })}
+                  >
+                    <MaterialIcons name="add" size={20} color="#1E90FF" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* 酒店评分 */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>酒店评分</Text>
+                <View style={styles.ratingOptions}>
+                  {[0, 3, 4, 4.5].map((rating) => (
+                    <TouchableOpacity
+                      key={rating}
+                      style={[
+                        styles.ratingOption,
+                        filterParams.rating === rating && styles.ratingOptionActive
+                      ]}
+                      onPress={() => setFilterParams({ ...filterParams, rating })}
+                    >
+                      <Text style={[
+                        styles.ratingOptionText,
+                        filterParams.rating === rating && styles.ratingOptionTextActive
+                      ]}>
+                        {rating === 0 ? '不限' : `${rating}+分`}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* 酒店设施 */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>酒店设施</Text>
+                <View style={styles.amenitiesGrid}>
+                  {[
+                    { id: 'wifi', name: 'WiFi' },
+                    { id: 'parking', name: '停车场' },
+                    { id: 'pool', name: '游泳池' },
+                    { id: 'gym', name: '健身房' },
+                    { id: 'restaurant', name: '餐厅' },
+                    { id: 'spa', name: 'SPA' },
+                  ].map((amenity) => {
+                    const isSelected = filterParams.amenities.includes(amenity.id);
+                    return (
+                      <TouchableOpacity
+                        key={amenity.id}
+                        style={[
+                          styles.amenityOption,
+                          isSelected && styles.amenityOptionActive
+                        ]}
+                        onPress={() => {
+                          const newAmenities = isSelected
+                            ? filterParams.amenities.filter(a => a !== amenity.id)
+                            : [...filterParams.amenities, amenity.id];
+                          setFilterParams({ ...filterParams, amenities: newAmenities });
+                        }}
+                      >
+                        <Text style={[
+                          styles.amenityOptionText,
+                          isSelected && styles.amenityOptionTextActive
+                        ]}>
+                          {amenity.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            </ScrollView>
+            
+            <View style={styles.filterModalFooter}>
+              <TouchableOpacity 
+                style={styles.resetButton}
+                onPress={() => setFilterParams({
+                  minPrice: 0,
+                  maxPrice: 1000,
+                  rating: 0,
+                  amenities: [],
+                })}
+              >
+                <Text style={styles.resetButtonText}>重置</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.applyButton}
+                onPress={() => setShowFilterModal(false)}
+              >
+                <Text style={styles.applyButtonText}>应用</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -395,6 +798,344 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  // Banner 轮播图样式
+  bannerContainer: {
+    height: BANNER_HEIGHT,
+    position: 'relative',
+    marginHorizontal: 16,
+    marginTop: 10,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  bannerImage: {
+    width: SCREEN_WIDTH - 32,
+    height: BANNER_HEIGHT,
+  },
+  bannerOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  bannerTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  bannerAddress: {
+    fontSize: 12,
+    color: '#ddd',
+  },
+  bannerPagination: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    flexDirection: 'row',
+  },
+  bannerDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    marginHorizontal: 3,
+  },
+  bannerDotActive: {
+    backgroundColor: '#fff',
+    width: 12,
+  },
+  // 日期选择和筛选样式
+  dateFilterContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    marginTop: 10,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E6F7FF',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    flex: 1,
+    marginRight: 10,
+  },
+  dateButtonText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#1E90FF',
+    fontWeight: '500',
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E6F7FF',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+  },
+  filterButtonText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#1E90FF',
+    fontWeight: '500',
+  },
+  // 日期选择弹窗样式
+  datePickerContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+    paddingBottom: 20,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  datePickerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  datePickerContent: {
+    flexDirection: 'row',
+    padding: 15,
+  },
+  dateTypeButton: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    marginHorizontal: 5,
+  },
+  dateTypeButtonActive: {
+    backgroundColor: '#1E90FF',
+  },
+  dateTypeText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  dateTypeTextActive: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  dateScrollView: {
+    maxHeight: 300,
+    paddingHorizontal: 15,
+  },
+  dateItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  dateItemSelected: {
+    backgroundColor: '#E6F7FF',
+    borderRadius: 8,
+  },
+  dateItemDisabled: {
+    opacity: 0.4,
+  },
+  dateItemText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  dateItemTextSelected: {
+    color: '#1E90FF',
+    fontWeight: 'bold',
+  },
+  dateItemTextDisabled: {
+    color: '#999',
+  },
+  dateItemWeek: {
+    fontSize: 14,
+    color: '#666',
+  },
+  dateConfirmButton: {
+    backgroundColor: '#1E90FF',
+    marginHorizontal: 15,
+    paddingVertical: 14,
+    borderRadius: 25,
+    alignItems: 'center',
+  },
+  dateConfirmButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  // 筛选弹窗样式
+  filterModalContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+  },
+  filterModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  filterModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  filterModalContent: {
+    padding: 15,
+  },
+  filterModalFooter: {
+    flexDirection: 'row',
+    padding: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  filterSection: {
+    marginBottom: 25,
+  },
+  filterSectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15,
+  },
+  priceRange: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  priceSlider: {
+    flex: 1,
+    height: 4,
+    backgroundColor: '#eee',
+    borderRadius: 2,
+    marginHorizontal: 10,
+    position: 'relative',
+  },
+  priceTrack: {
+    height: 4,
+    backgroundColor: '#1E90FF',
+    borderRadius: 2,
+  },
+  priceThumb: {
+    position: 'absolute',
+    top: -8,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#1E90FF',
+    marginLeft: -10,
+  },
+  priceText: {
+    fontSize: 14,
+    color: '#666',
+    minWidth: 40,
+  },
+  priceInputs: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  priceInputButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E6F7FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  price: {
+    fontSize: 14,
+    color: '#333',
+  },
+  ratingOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  ratingOption: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#f5f5f5',
+    marginRight: 10,
+    marginBottom: 10,
+  },
+  ratingOptionActive: {
+    backgroundColor: '#1E90FF',
+  },
+  ratingOptionText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  ratingOptionTextActive: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  amenitiesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  amenityOption: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#f5f5f5',
+    marginRight: 10,
+    marginBottom: 10,
+  },
+  amenityOptionActive: {
+    backgroundColor: '#1E90FF',
+  },
+  amenityOptionText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  amenityOptionTextActive: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  resetButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: '#1E90FF',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  resetButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1E90FF',
+  },
+  applyButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 25,
+    backgroundColor: '#1E90FF',
+    alignItems: 'center',
+  },
+  applyButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
   },
   searchHeader: {
     flexDirection: 'row',
@@ -467,29 +1208,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 12,
-  },
-  cityGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  hotCityItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    marginRight: 10,
-    marginBottom: 10,
-    borderRadius: 20,
-    backgroundColor: '#f5f5f5',
-  },
-  hotCityItemActive: {
-    backgroundColor: '#1E90FF',
-  },
-  hotCityText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  hotCityTextActive: {
-    color: '#fff',
-    fontWeight: 'bold',
   },
   searchButton: {
     flexDirection: 'row',

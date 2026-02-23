@@ -160,6 +160,7 @@ export const useHotelList = (initialParams?: HotelListParams) => {
         ...params,
         page: currentPage,
         pageSize: 10,
+        publishStatus: 'published',
       };
       
       console.log('Fetching hotels with params:', queryParams);
@@ -245,7 +246,11 @@ export const useSearchHotels = () => {
     setError(null);
 
     try {
-      const response = await searchHotels(keyword, params);
+      const searchParams = {
+        ...params,
+        publishStatus: 'published',
+      };
+      const response = await searchHotels(keyword, searchParams);
       
       if (response.code === 200 && response.data) {
         setResults(response.data.items);
