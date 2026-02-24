@@ -230,6 +230,17 @@ const HotelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           />
           <Text style={styles.favoriteText}>收藏</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.reviewButton}
+          onPress={() => navigation.navigate('Reviews', { hotelId, hotelName: hotel?.name })}
+        >
+          <MaterialIcons
+            name="rate-review"
+            size={24}
+            color={colors.primary}
+          />
+          <Text style={styles.reviewButtonText}>点评</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.bookNowButton}>
           <Text style={styles.bookNowText}>立即预订</Text>
         </TouchableOpacity>
@@ -466,12 +477,23 @@ const styles = StyleSheet.create({
   favoriteButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
   favoriteText: {
     marginTop: 4,
     fontSize: 12,
     color: colors.gray,
+  },
+  reviewButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    marginLeft: 8,
+  },
+  reviewButtonText: {
+    marginTop: 4,
+    fontSize: 12,
+    color: colors.primary,
   },
   bookNowButton: {
     flex: 1,

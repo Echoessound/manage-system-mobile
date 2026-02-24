@@ -14,6 +14,7 @@ export type UserStatus = 'active' | 'inactive';
 /** 用户基础信息 */
 export interface User {
   id: string;
+  _id?: string;
   username: string;
   email?: string;
   phone?: string;
@@ -90,6 +91,7 @@ export interface HotelListParams {
   rating?: number;
   amenities?: string[];
   status?: HotelStatus;
+  publishStatus?: 'draft' | 'pending' | 'published' | 'rejected';
   page?: number;
   pageSize?: number;
   sortBy?: 'price' | 'rating' | 'createdAt';

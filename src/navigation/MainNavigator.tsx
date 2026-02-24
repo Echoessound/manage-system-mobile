@@ -14,6 +14,7 @@ import FavoritesScreen from '../screens/favorites/Favorites';
 import ProfileScreen from '../screens/profile/Profile';
 import HotelDetailScreen from '../screens/hotel/HotelDetail';
 import FilterScreen from '../screens/search/Filter';
+import ReviewsScreen from '../screens/reviews/Reviews';
 
 import { MainStackParamList, MainTabParamList } from './types';
 import { colors } from '../constants';
@@ -116,6 +117,11 @@ const MainNavigator = () => {
         name="Filter"
         component={FilterScreen}
         options={{ title: '筛选' }}
+      />
+      <Stack.Screen
+        name="Reviews"
+        component={ReviewsScreen}
+        options={{ title: '酒店评论' }}
       />
     </Stack.Navigator>
   );

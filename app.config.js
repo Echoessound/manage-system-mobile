@@ -31,6 +31,7 @@ export default {
     },
     web: {
       favicon: './assets/favicon.png',
+      lang: 'zh-CN',
     },
   },
 };

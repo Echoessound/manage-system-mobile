@@ -198,5 +198,78 @@ export const clearStorage = async (): Promise<void> => {
   await AsyncStorage.clear();
 };
 
+// ==================== 评论相关 API ====================
+
+/**
+ * 评论数据类型
+ */
+export interface Review {
+  _id: string;
+  hotelId: string;
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  rating: number;
+  content: string;
+  images?: string[];
+  type: 'good' | 'neutral' | 'bad';
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * 评论列表响应
+ */
+export interface ReviewListResponse {
+  items: Review[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  ratingStats: {
+    total: number;
+    good: number;
+    neutral: number;
+    bad: number;
+    avgRating: number;
+  };
+}
+
+/**
+ * 获取酒店评论列表
+ */
+export const getHotelReviews = async (
+  hotelId: string,
+  page: number = 1,
+  pageSize: number = 10
+): Promise<ApiResponse<ReviewListResponse>> => {
+  const response = await apiClient.get(`/review/hotel/${hotelId}`, {
+    params: { page, pageSize },
+  });
+  return response.data;
+};
+
+/**
+ * 创建评论
+ */
+export const createReview = async (data: {
+  hotelId: string;
+  rating: number;
+  content: string;
+  images?: string[];
+  type?: 'good' | 'neutral' | 'bad';
+}): Promise<ApiResponse<Review>> => {
+  const response = await apiClient.post('/review/create', data);
+  return response.data;
+};
+
+/**
+ * 删除评论
+ */
+export const deleteReview = async (reviewId: string): Promise<ApiResponse<null>> => {
+  const response = await apiClient.delete(`/review/${reviewId}`);
+  return response.data;
+};
+
 export default apiClient;
 

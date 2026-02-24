@@ -467,7 +467,7 @@ const HotelListScreen: React.FC<Props> = ({ route, navigation }) => {
       <View style={styles.resultHeader}>
         {(filterMinPrice || filterMaxPrice || filterRating > 0 || filterAmenities.length > 0) && (
           <TouchableOpacity onPress={resetFilters}>
-            <Text style={styles.clearFilterText}>清除筛选</Text>
+            <Text style={styles.clearFilterText}>重置筛选</Text>
           </TouchableOpacity>
         )}
       </View>

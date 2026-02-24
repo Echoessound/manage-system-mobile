@@ -16,6 +16,7 @@ import {
   Alert,
   Dimensions,
   Image,
+  PanResponder,
 } from 'react-native';
 import * as Location from 'expo-location';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -30,6 +31,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BANNER_HEIGHT = 180;
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
+  const { width } = Dimensions.get('window');
   const [selectedCity, setSelectedCity] = useState('北京');
   const [searchKeyword, setSearchKeyword] = useState('');
   const [showCityPicker, setShowCityPicker] = useState(false);
@@ -64,10 +66,62 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [filterParams, setFilterParams] = useState({
     minPrice: 0,
-    maxPrice: 1000,
+    maxPrice: 2000,
     rating: 0,
     amenities: [] as string[],
   });
+  
+  // 价格滑动条状态
+  const [sliderWidth, setSliderWidth] = useState(300);
+  const minStartX = useRef(0);
+  const minStartPrice = useRef(0);
+  const maxStartX = useRef(0);
+  const maxStartPrice = useRef(0);
+  
+  const MIN_PRICE = 0;
+  const MAX_PRICE = 5000;
+  
+  // 最小值滑块 PanResponder
+  const minPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: (evt) => {
+        minStartX.current = evt.nativeEvent.pageX;
+        minStartPrice.current = filterParams.minPrice;
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        if (sliderWidth <= 0) return;
+        const deltaX = evt.nativeEvent.pageX - minStartX.current;
+        const pricePerPixel = MAX_PRICE / sliderWidth;
+        const newPrice = Math.round(minStartPrice.current + deltaX * pricePerPixel);
+        const clampedPrice = Math.max(MIN_PRICE, Math.min(newPrice, filterParams.maxPrice - 100));
+        setFilterParams(prev => ({ ...prev, minPrice: clampedPrice }));
+      },
+      onPanResponderRelease: () => {},
+    })
+  ).current;
+  
+  // 最大值滑块 PanResponder
+  const maxPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: (evt) => {
+        maxStartX.current = evt.nativeEvent.pageX;
+        maxStartPrice.current = filterParams.maxPrice;
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        if (sliderWidth <= 0) return;
+        const deltaX = evt.nativeEvent.pageX - maxStartX.current;
+        const pricePerPixel = MAX_PRICE / sliderWidth;
+        const newPrice = Math.round(maxStartPrice.current + deltaX * pricePerPixel);
+        const clampedPrice = Math.max(filterParams.minPrice + 100, Math.min(newPrice, MAX_PRICE));
+        setFilterParams(prev => ({ ...prev, maxPrice: clampedPrice }));
+      },
+      onPanResponderRelease: () => {},
+    })
+  ).current;
+
+  // Banner 轮播图状态
   
   // Banner 轮播图状态
   const [bannerHotels, setBannerHotels] = useState<Hotel[]>([]);
@@ -102,6 +156,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         const response = await getHotelList({
           page: 1,
           pageSize: 5,
+          publishStatus: 'published',
         });
         if (response.data && response.data.items) {
           setBannerHotels(response.data.items);
@@ -127,6 +182,22 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     }
     return () => clearInterval(interval);
   }, [bannerHotels.length, autoPlay]);
+
+  // 切换到上一张
+  const scrollToPrev = () => {
+    if (bannerHotels.length === 0) return;
+    const prevIndex = bannerIndex === 0 ? bannerHotels.length - 1 : bannerIndex - 1;
+    bannerRef.current?.scrollToIndex({ index: prevIndex, animated: true });
+    setBannerIndex(prevIndex);
+  };
+
+  // 切换到下一张
+  const scrollToNext = () => {
+    if (bannerHotels.length === 0) return;
+    const nextIndex = (bannerIndex + 1) % bannerHotels.length;
+    bannerRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+    setBannerIndex(nextIndex);
+  };
 
   // 过滤有有效拼音首字母的城市，并按拼音首字母排序
   const sortedCityList = [...cityList]
@@ -359,13 +430,26 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       {/* Banner 轮播图 */}
       {bannerHotels.length > 0 && (
         <View style={styles.bannerContainer}>
+          {/* 左侧切换按钮 */}
+          <TouchableOpacity style={styles.bannerButtonLeft} onPress={scrollToPrev}>
+            <MaterialIcons name="chevron-left" size={30} color="#fff" />
+          </TouchableOpacity>
+          
           <FlatList
             ref={bannerRef}
             data={bannerHotels}
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
-            onMomentumScrollEnd={handleBannerScroll}
+            getItemLayout={(_, index) => ({
+              length: width,
+              offset: width * index,
+              index,
+            })}
+            onMomentumScrollEnd={(e) => {
+              const newIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+              setBannerIndex(newIndex);
+            }}
             onScrollBeginDrag={() => setAutoPlay(false)}
             onScrollEndDrag={() => setAutoPlay(true)}
             renderItem={({ item }) => (
@@ -390,6 +474,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             )}
             keyExtractor={(item) => item.id || item._id}
           />
+          {/* 右侧切换按钮 */}
+          <TouchableOpacity style={styles.bannerButtonRight} onPress={scrollToNext}>
+            <MaterialIcons name="chevron-right" size={30} color="#fff" />
+          </TouchableOpacity>
           {/* 轮播指示器 */}
           <View style={styles.bannerPagination}>
             {bannerHotels.map((_, index) => (
@@ -664,43 +752,119 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               </TouchableOpacity>
             </View>
             
-            <ScrollView style={styles.filterModalContent}>
+            <ScrollView 
+              style={styles.filterModalContent}
+            >
               {/* 价格区间 */}
               <View style={styles.filterSection}>
                 <Text style={styles.filterSectionTitle}>价格区间</Text>
-                <View style={styles.priceRange}>
-                  <Text style={styles.priceText}>¥{filterParams.minPrice}</Text>
-                  <View style={styles.priceSlider}>
-                    <View 
-                      style={[
-                        styles.priceTrack, 
-                        { width: `${(filterParams.minPrice / 1000) * 100}%` }
-                      ]} 
+                <Text style={styles.priceDisplay}>¥{filterParams.minPrice} - ¥{filterParams.maxPrice}</Text>
+                
+                {/* 双滑块滑动条 */}
+                <View 
+                  style={styles.rangeSliderContainer}
+                  onLayout={(e) => setSliderWidth(e.nativeEvent.layout.width)}
+                >
+                  {/* 背景轨道 */}
+                  <View style={styles.sliderTrackBg} />
+                  {/* 已选范围 */}
+                  <View 
+                    style={[
+                      styles.sliderRange, 
+                      { 
+                        left: `${(filterParams.minPrice / MAX_PRICE) * 100}%`,
+                        width: `${((filterParams.maxPrice - filterParams.minPrice) / MAX_PRICE) * 100}%`
+                      }
+                    ]} 
+                  />
+                  {/* 最小值滑块 */}
+                  <View
+                    style={[
+                      styles.sliderThumb,
+                      { left: `${(filterParams.minPrice / MAX_PRICE) * 100}%` }
+                    ]}
+                    {...minPanResponder.panHandlers}
+                  >
+                    <View style={styles.sliderThumbInner} />
+                  </View>
+                  {/* 最大值滑块 */}
+                  <View
+                    style={[
+                      styles.sliderThumb,
+                      { left: `${(filterParams.maxPrice / MAX_PRICE) * 100}%` }
+                    ]}
+                    {...maxPanResponder.panHandlers}
+                  >
+                    <View style={styles.sliderThumbInner} />
+                  </View>
+                </View>
+                
+                <View style={styles.priceLabels}>
+                  <Text style={styles.priceLabel}>¥{MIN_PRICE}</Text>
+                  <Text style={styles.priceLabel}>¥{MAX_PRICE}</Text>
+                </View>
+                <View style={styles.priceQuickButtons}>
+                  <TouchableOpacity 
+                    style={styles.priceQuickButton}
+                    onPress={() => setFilterParams({ ...filterParams, minPrice: 0, maxPrice: 500 })}
+                  >
+                    <Text style={styles.priceQuickButtonText}>不限</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.priceQuickButton}
+                    onPress={() => setFilterParams({ ...filterParams, minPrice: 0, maxPrice: 500 })}
+                  >
+                    <Text style={styles.priceQuickButtonText}>0-500</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.priceQuickButton}
+                    onPress={() => setFilterParams({ ...filterParams, minPrice: 500, maxPrice: 1000 })}
+                  >
+                    <Text style={styles.priceQuickButtonText}>500-1000</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.priceQuickButton}
+                    onPress={() => setFilterParams({ ...filterParams, minPrice: 1000, maxPrice: 2000 })}
+                  >
+                    <Text style={styles.priceQuickButtonText}>1000-2000</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.priceQuickButton}
+                    onPress={() => setFilterParams({ ...filterParams, minPrice: 2000, maxPrice: 5000 })}
+                  >
+                    <Text style={styles.priceQuickButtonText}>2000+</Text>
+                  </TouchableOpacity>
+                </View>
+                
+                {/* 手动输入价格 */}
+                <View style={styles.priceInputContainer}>
+                  <View style={styles.priceInputWrapper}>
+                    <TextInput
+                      style={styles.priceInput}
+                      value={filterParams.minPrice.toString()}
+                      onChangeText={(text) => {
+                        const value = parseInt(text) || 0;
+                        const newMin = Math.max(0, Math.min(value, filterParams.maxPrice - 100));
+                        setFilterParams({ ...filterParams, minPrice: newMin });
+                      }}
+                      keyboardType="numeric"
+                      placeholder="最低价"
+                      placeholderTextColor="#999"
                     />
-                    <TouchableOpacity 
-                      style={[
-                        styles.priceThumb, 
-                        { left: `${(filterParams.minPrice / 1000) * 100}%` }
-                      ]}
-                      onPress={() => {}}
+                    <Text style={styles.priceInputSeparator}>-</Text>
+                    <TextInput
+                      style={styles.priceInput}
+                      value={filterParams.maxPrice.toString()}
+                      onChangeText={(text) => {
+                        const value = parseInt(text) || 5000;
+                        const newMax = Math.max(filterParams.minPrice + 100, Math.min(value, 5000));
+                        setFilterParams({ ...filterParams, maxPrice: newMax });
+                      }}
+                      keyboardType="numeric"
+                      placeholder="最高价"
+                      placeholderTextColor="#999"
                     />
                   </View>
-                  <Text style={styles.priceText}>¥{filterParams.maxPrice}</Text>
-                </View>
-                <View style={styles.priceInputs}>
-                  <TouchableOpacity 
-                    style={styles.priceInputButton}
-                    onPress={() => setFilterParams({ ...filterParams, minPrice: Math.max(0, filterParams.minPrice - 100) })}
-                  >
-                    <MaterialIcons name="remove" size={20} color="#1E90FF" />
-                  </TouchableOpacity>
-                  <Text style={styles.price}>¥{filterParams.minPrice} - ¥{filterParams.maxPrice}</Text>
-                  <TouchableOpacity 
-                    style={styles.priceInputButton}
-                    onPress={() => setFilterParams({ ...filterParams, maxPrice: Math.min(10000, filterParams.maxPrice + 100) })}
-                  >
-                    <MaterialIcons name="add" size={20} color="#1E90FF" />
-                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -830,6 +994,24 @@ const styles = StyleSheet.create({
   bannerAddress: {
     fontSize: 12,
     color: '#ddd',
+  },
+  bannerButtonLeft: {
+    position: 'absolute',
+    left: 10,
+    top: '50%',
+    zIndex: 10,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 20,
+    padding: 5,
+  },
+  bannerButtonRight: {
+    position: 'absolute',
+    right: 10,
+    top: '50%',
+    zIndex: 10,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 20,
+    padding: 5,
   },
   bannerPagination: {
     position: 'absolute',
@@ -1015,6 +1197,104 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 15,
+  },
+  // 双滑块滑动条样式
+  rangeSliderContainer: {
+    height: 40,
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  sliderTrackBg: {
+    height: 4,
+    backgroundColor: '#eee',
+    borderRadius: 2,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+  },
+  sliderRange: {
+    position: 'absolute',
+    height: 4,
+    backgroundColor: '#1E90FF',
+    borderRadius: 2,
+  },
+  sliderThumb: {
+    position: 'absolute',
+    top: 0,
+    width: 24,
+    height: 40,
+    backgroundColor: 'transparent',
+    marginLeft: -12,
+  },
+  sliderThumbInner: {
+    position: 'absolute',
+    top: 10,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#1E90FF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  priceDisplay: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1E90FF',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  priceLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 5,
+  },
+  priceLabel: {
+    fontSize: 12,
+    color: '#999',
+  },
+  priceQuickButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 15,
+  },
+  priceQuickButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#f5f5f5',
+    marginRight: 10,
+    marginBottom: 10,
+  },
+  priceQuickButtonText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  priceInputContainer: {
+    marginTop: 16,
+  },
+  priceInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  priceInput: {
+    flex: 1,
+    height: 40,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    textAlign: 'center',
+    backgroundColor: '#fff',
+  },
+  priceInputSeparator: {
+    marginHorizontal: 12,
+    fontSize: 16,
+    color: '#666',
   },
   priceRange: {
     flexDirection: 'row',

@@ -40,6 +40,7 @@ export type MainStackParamList = {
     };
     onApply: (params: any) => void;
   };
+  Reviews: { hotelId: string; hotelName?: string };
 };
 
 /** 主标签页 */
