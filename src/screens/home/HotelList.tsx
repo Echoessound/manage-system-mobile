@@ -22,7 +22,7 @@ import { MainStackScreenProps } from '../../navigation/types';
 import { Hotel } from '../../types';
 import { DEFAULT_HOTEL_IMAGE } from '../../constants';
 import { formatPrice, getRatingDisplay } from '../../utils';
-import { getAllChinaCities, CityInfo } from '../../services/location';
+import CityPicker from '../../components/CityPicker';
 
 type Props = MainStackScreenProps<'HotelList'>;
 
@@ -47,8 +47,6 @@ const HotelListScreen: React.FC<Props> = ({ route, navigation }) => {
   const [showFilters, setShowFilters] = useState(false);
   const [showCityPicker, setShowCityPicker] = useState(false);
   const [selectedCity, setSelectedCity] = useState(city);
-  const [cityList, setCityList] = useState<CityInfo[]>([]);
-  const [loadingCities, setLoadingCities] = useState(true);
   
   // 详细筛选状态
   const [filterMinPrice, setFilterMinPrice] = useState<number | undefined>(minPrice);
@@ -96,49 +94,6 @@ const HotelListScreen: React.FC<Props> = ({ route, navigation }) => {
   }, [city, searchKeyword, filterMinPrice, filterMaxPrice, filterRating, filterAmenities]);
 
   // 搜索关键词变化时更新
-  useEffect(() => {
-    setSearchKeyword(keyword || '');
-  }, [keyword]);
-
-  // 加载城市列表
-  useEffect(() => {
-    const loadCities = async () => {
-      try {
-        const cities = await getAllChinaCities();
-        if (cities.length > 0) {
-          setCityList(cities);
-        }
-      } catch (error) {
-        console.error('加载城市列表失败:', error);
-      } finally {
-        setLoadingCities(false);
-      }
-    };
-    loadCities();
-  }, []);
-
-  // 过滤有有效拼音首字母的城市，并按拼音首字母排序
-  const sortedCityList = useMemo(() => [...cityList]
-    .filter(city => {
-      const pinyin = city.pinyin || city.name;
-      return /^[A-Za-z]/.test(pinyin);
-    })
-    .sort((a, b) => 
-      (a.pinyin || a.name).localeCompare(b.pinyin || b.name, 'en-US')
-    ), [cityList]);
-
-  // 按拼音首字母分组的城市列表
-  const groupedCities = useMemo(() => sortedCityList.reduce((groups, city) => {
-    const pinyin = city.pinyin || city.name;
-    const firstLetter = pinyin.charAt(0).toUpperCase();
-    if (!groups[firstLetter]) {
-      groups[firstLetter] = [];
-    }
-    groups[firstLetter].push(city);
-    return groups;
-  }, {} as Record<string, typeof cityList>), [sortedCityList]);
-
-  const citySections = Object.keys(groupedCities).sort();
 
   // 应用筛选
   const applyFilters = useCallback(() => {
@@ -382,81 +337,18 @@ const HotelListScreen: React.FC<Props> = ({ route, navigation }) => {
     </Modal>
   );
 
-  // 城市选择弹窗
-  const POPULAR_CITIES = ['北京', '上海', '广州', '深圳', '杭州', '成都', '重庆', '武汉', '西安', '南京', '苏州', '天津', '厦门', '长沙', '郑州', '青岛'];
-
-  const renderCityPickerModal = () => (
-    <Modal
-      visible={showCityPicker}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={() => setShowCityPicker(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.cityPickerModal}>
-          <View style={styles.filterModalHeader}>
-            <Text style={styles.filterModalTitle}>选择城市</Text>
-            <TouchableOpacity onPress={() => setShowCityPicker(false)}>
-              <MaterialIcons name="close" size={24} color="#333" />
-            </TouchableOpacity>
-          </View>
-          <ScrollView style={styles.cityListContainer}>
-            {/* 热门城市 */}
-            <Text style={styles.citySectionTitle}>热门城市</Text>
-            <View style={styles.cityGrid}>
-              {POPULAR_CITIES.map((c) => (
-                <TouchableOpacity
-                  key={c}
-                  style={[styles.cityChip, selectedCity === c && styles.cityChipActive]}
-                  onPress={() => {
-                    setSelectedCity(c);
-                    updateParams({ city: c, keyword: searchKeyword || undefined, minPrice: filterMinPrice, maxPrice: filterMaxPrice, rating: filterRating || undefined, amenities: filterAmenities.length > 0 ? filterAmenities : undefined });
-                    setShowCityPicker(false);
-                  }}
-                >
-                  <Text style={[styles.cityChipText, selectedCity === c && styles.cityChipTextActive]}>
-                    {c}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* 全国城市按拼音排序 */}
-            <Text style={[styles.citySectionTitle, { marginTop: 20 }]}>全国城市</Text>
-            {loadingCities ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color="#1E90FF" />
-                <Text style={styles.loadingText}>加载城市中...</Text>
-              </View>
-            ) : (
-              citySections.map((letter) => (
-                <View key={letter} style={styles.citySection}>
-                  <Text style={styles.citySectionLetter}>{letter}</Text>
-                  <View style={styles.citySectionContent}>
-                    {groupedCities[letter].map((city) => (
-                      <TouchableOpacity
-                        key={city.name}
-                        style={[styles.cityChip, selectedCity === city.name && styles.cityChipActive]}
-                        onPress={() => {
-                          setSelectedCity(city.name);
-                          updateParams({ city: city.name, keyword: searchKeyword || undefined, minPrice: filterMinPrice, maxPrice: filterMaxPrice, rating: filterRating || undefined, amenities: filterAmenities.length > 0 ? filterAmenities : undefined });
-                          setShowCityPicker(false);
-                        }}
-                      >
-                        <Text style={[styles.cityChipText, selectedCity === city.name && styles.cityChipTextActive]}>
-                          {city.name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              ))
-            )}
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
-  );
+  // 选择城市后更新列表
+  const handleCitySelect = (cityName: string) => {
+    setSelectedCity(cityName);
+    updateParams({ 
+      city: cityName, 
+      keyword: searchKeyword || undefined, 
+      minPrice: filterMinPrice, 
+      maxPrice: filterMaxPrice, 
+      rating: filterRating || undefined, 
+      amenities: filterAmenities.length > 0 ? filterAmenities : undefined 
+    });
+  };
 
   return (
     <View style={styles.container}>
@@ -499,7 +391,13 @@ const HotelListScreen: React.FC<Props> = ({ route, navigation }) => {
       {renderFilterModal()}
 
       {/* 城市选择弹窗 */}
-      {renderCityPickerModal()}
+      {/* 城市选择弹窗 - 使用复用组件 */}
+      <CityPicker
+        visible={showCityPicker}
+        onClose={() => setShowCityPicker(false)}
+        onSelect={handleCitySelect}
+        selectedCity={selectedCity}
+      />
     </View>
   );
 };

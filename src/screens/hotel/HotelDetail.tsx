@@ -2,7 +2,7 @@
  * 酒店详情屏幕
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,14 +12,14 @@ import {
   TouchableOpacity,
   Dimensions,
   FlatList,
-  Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { MainStackScreenProps } from '../../navigation/types';
 import { useHotelDetail, useFavorite } from '../../hooks';
-import { formatPrice, getRatingDisplay, isValidEmail } from '../../utils';
+import { formatPrice, getRatingDisplay } from '../../utils';
 import { colors, DEFAULT_HOTEL_IMAGE, DEFAULT_ROOM_IMAGE, AVAILABLE_AMENITIES } from '../../constants';
 import { RoomType, Hotel } from '../../types';
+import { addBrowsingHistoryToServer } from '../../api';
 
 const { width } = Dimensions.get('window');
 
@@ -32,6 +32,15 @@ const HotelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   const currentHotel = hotel || initialHotel;
+
+  // 记录浏览历史
+  useEffect(() => {
+    if (hotelId) {
+      addBrowsingHistoryToServer(hotelId).catch(err => {
+        console.log('记录浏览历史失败:', err);
+      });
+    }
+  }, [hotelId]);
 
   useEffect(() => {
     if (currentHotel) {
@@ -88,39 +97,49 @@ const HotelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     <Image source={{ uri: item }} style={styles.galleryImage} />
   );
 
-  const renderRoomType = ({ item }: { item: RoomType }) => (
-    <View style={styles.roomTypeCard}>
-      <Image
-        source={{ uri: item.images?.[0] || DEFAULT_ROOM_IMAGE }}
-        style={styles.roomImage}
-      />
-      <View style={styles.roomInfo}>
-        <Text style={styles.roomName}>{item.name}</Text>
-        <Text style={styles.roomDesc} numberOfLines={2}>
-          {item.description || '暂无描述'}
-        </Text>
-        <View style={styles.roomDetails}>
-          <Text style={styles.roomCapacity}>
-            <MaterialIcons name="person" size={14} color={colors.textSecondary} /> 
-            {' '}{item.capacity}人
+  const renderRoomType = ({ item }: { item: RoomType }) => {
+    // 获取房间图片
+    const roomImage = item.images && item.images.length > 0 
+      ? item.images[0] 
+      : DEFAULT_ROOM_IMAGE;
+    
+    console.log('[HotelDetail] 房型图片:', item.name, '->', roomImage);
+    
+    return (
+      <View style={styles.roomTypeCard}>
+        <Image
+          source={{ uri: roomImage }}
+          style={styles.roomImage}
+          resizeMode="cover"
+        />
+        <View style={styles.roomInfo}>
+          <Text style={styles.roomName}>{item.name}</Text>
+          <Text style={styles.roomDesc} numberOfLines={2}>
+            {item.description || '暂无描述'}
           </Text>
-          <Text style={styles.roomBed}>
-            {item.bedType || '大床/双床'}
-          </Text>
-          {item.area && (
-            <Text style={styles.roomArea}>{item.area}m²</Text>
-          )}
-        </View>
-        <View style={styles.roomPriceRow}>
-          <Text style={styles.roomPrice}>{formatPrice(item.price)}</Text>
-          <Text style={styles.roomUnit}>/晚</Text>
-          <TouchableOpacity style={styles.bookButton}>
-            <Text style={styles.bookButtonText}>预订</Text>
-          </TouchableOpacity>
+          <View style={styles.roomDetails}>
+            <Text style={styles.roomCapacity}>
+              <MaterialIcons name="person" size={14} color={colors.textSecondary} /> 
+              {' '}{item.capacity}人
+            </Text>
+            <Text style={styles.roomBed}>
+              {item.bedType || '大床/双床'}
+            </Text>
+            {item.area && (
+              <Text style={styles.roomArea}>{item.area}m²</Text>
+            )}
+          </View>
+          <View style={styles.roomPriceRow}>
+            <Text style={styles.roomPrice}>{formatPrice(item.price)}</Text>
+            <Text style={styles.roomUnit}>/晚</Text>
+            <TouchableOpacity style={styles.bookButton}>
+              <Text style={styles.bookButtonText}>预订</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <ScrollView style={styles.container}>
@@ -205,6 +224,7 @@ const HotelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       )}
 
       {/* 房型列表 */}
+      {console.log('[HotelDetail] hotel:', hotel, 'roomTypes:', hotel?.roomTypes)}
       {(hotel?.roomTypes || []).length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>房型列表</Text>
@@ -511,5 +531,3 @@ const styles = StyleSheet.create({
 });
 
 export default HotelDetailScreen;
-
-

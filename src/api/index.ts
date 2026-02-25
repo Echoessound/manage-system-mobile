@@ -101,11 +101,34 @@ export const sendVerificationCode = async (email: string): Promise<ApiResponse<n
 };
 
 /**
- * 登出
+ * 登出 - JWT是无状态的,只需要清除本地token即可
  */
 export const logout = async (): Promise<ApiResponse<null>> => {
-  const response = await apiClient.post('/user/logout');
-  return response.data;
+  try {
+    // 获取所有存储的 keys
+    const keys = await AsyncStorage.getAllKeys();
+    console.log('[Logout] All storage keys:', keys);
+    
+    // 清除所有应用相关的存储
+    const appKeys = keys.filter(key => 
+      key.startsWith('@hotel_app') || 
+      key.includes('token') || 
+      key.includes('user') ||
+      key.includes('auth')
+    );
+    
+    console.log('[Logout] Keys to remove:', appKeys);
+    
+    // 逐个清除
+    for (const key of appKeys) {
+      await AsyncStorage.removeItem(key);
+    }
+    
+    console.log('[Logout] All app storage cleared successfully');
+  } catch (error) {
+    console.error('[Logout] Error clearing storage:', error);
+  }
+  return { code: 200, message: '退出成功' };
 };
 
 /**
@@ -131,7 +154,14 @@ export const getHotelList = async (params: HotelListParams): Promise<ApiResponse
  * 获取酒店详情
  */
 export const getHotelDetail = async (hotelId: string): Promise<ApiResponse<Hotel>> => {
-  const response = await apiClient.get(`/hotel/${hotelId}`);
+  if (!hotelId || hotelId === 'undefined' || hotelId === 'null') {
+    console.error('[getHotelDetail] Invalid hotelId:', hotelId);
+    throw new Error('无效的酒店ID');
+  }
+  console.log('[getHotelDetail] Requesting hotel:', hotelId);
+  // 添加时间戳防止缓存
+  const response = await apiClient.get(`/hotel/detail/${hotelId}?t=${Date.now()}`);
+  console.log('[getHotelDetail] Response:', response.data);
   return response.data;
 };
 
@@ -268,6 +298,68 @@ export const createReview = async (data: {
  */
 export const deleteReview = async (reviewId: string): Promise<ApiResponse<null>> => {
   const response = await apiClient.delete(`/review/${reviewId}`);
+  return response.data;
+};
+
+// ==================== 收藏相关 API ====================
+
+/**
+ * 添加收藏
+ */
+export const addFavoriteToServer = async (hotelId: string): Promise<ApiResponse<any>> => {
+  const response = await apiClient.post('/favorite/add', { hotelId });
+  return response.data;
+};
+
+/**
+ * 移除收藏
+ */
+export const removeFavoriteFromServer = async (hotelId: string): Promise<ApiResponse<null>> => {
+  const response = await apiClient.delete(`/favorite/remove/${hotelId}`);
+  return response.data;
+};
+
+/**
+ * 获取收藏列表（从服务器）
+ */
+export const getFavoritesFromServer = async (
+  page: number = 1,
+  pageSize: number = 20
+): Promise<ApiResponse<{ items: Hotel[]; total: number }>> => {
+  const response = await apiClient.get('/favorite/list', {
+    params: { page, pageSize },
+  });
+  return response.data;
+};
+
+// ==================== 浏览历史相关 API ====================
+
+/**
+ * 添加浏览历史
+ */
+export const addBrowsingHistoryToServer = async (hotelId: string): Promise<ApiResponse<any>> => {
+  const response = await apiClient.post('/browsingHistory/add', { hotelId });
+  return response.data;
+};
+
+/**
+ * 获取浏览历史列表
+ */
+export const getBrowsingHistoryFromServer = async (
+  page: number = 1,
+  pageSize: number = 20
+): Promise<ApiResponse<{ items: any[]; total: number }>> => {
+  const response = await apiClient.get('/browsingHistory/list', {
+    params: { page, pageSize },
+  });
+  return response.data;
+};
+
+/**
+ * 清空浏览历史
+ */
+export const clearBrowsingHistoryFromServer = async (): Promise<ApiResponse<null>> => {
+  const response = await apiClient.delete('/browsingHistory/clear');
   return response.data;
 };
 

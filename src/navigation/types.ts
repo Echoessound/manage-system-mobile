@@ -41,12 +41,14 @@ export type MainStackParamList = {
     onApply: (params: any) => void;
   };
   Reviews: { hotelId: string; hotelName?: string };
+  BrowsingHistory: undefined;
 };
 
 /** 主标签页 */
 export type MainTabParamList = {
   Home: undefined;
   Search: undefined;
+  AIAssistant: undefined;
   Favorites: undefined;
   Profile: undefined;
 };

@@ -42,6 +42,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const setAuthState = (loggedIn: boolean, userData: User | null) => {
+    console.log('AuthContext: setAuthState called with', loggedIn);
     setIsLoggedIn(loggedIn);
     setUser(userData);
   };

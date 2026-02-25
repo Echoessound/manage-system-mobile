@@ -10,8 +10,10 @@ import { MaterialIcons } from '@expo/vector-icons';
 import HomeScreen from '../screens/home/Home';
 import HotelListScreen from '../screens/home/HotelList';
 import SearchScreen from '../screens/search/Search';
+import AIAssistantScreen from '../screens/aiassistant/AIAssistant';
 import FavoritesScreen from '../screens/favorites/Favorites';
 import ProfileScreen from '../screens/profile/Profile';
+import BrowsingHistoryScreen from '../screens/profile/BrowsingHistory';
 import HotelDetailScreen from '../screens/hotel/HotelDetail';
 import FilterScreen from '../screens/search/Filter';
 import ReviewsScreen from '../screens/reviews/Reviews';
@@ -36,6 +38,9 @@ const MainTabs = () => {
               break;
             case 'Search':
               iconName = 'search';
+              break;
+            case 'AIAssistant':
+              iconName = 'smart-toy';
               break;
             case 'Favorites':
               iconName = 'favorite';
@@ -65,10 +70,11 @@ const MainTabs = () => {
         component={HomeScreen}
         options={{ title: '首页' }}
       />
+      
       <Tab.Screen
-        name="Search"
-        component={SearchScreen}
-        options={{ title: '搜索' }}
+        name="AIAssistant"
+        component={AIAssistantScreen}
+        options={{ title: 'AI助手' }}
       />
       <Tab.Screen
         name="Favorites"
@@ -122,6 +128,11 @@ const MainNavigator = () => {
         name="Reviews"
         component={ReviewsScreen}
         options={{ title: '酒店评论' }}
+      />
+      <Stack.Screen
+        name="BrowsingHistory"
+        component={BrowsingHistoryScreen}
+        options={{ title: '浏览历史' }}
       />
     </Stack.Navigator>
   );

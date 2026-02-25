@@ -400,6 +400,44 @@ export const getAllChinaCities = async (): Promise<CityInfo[]> => {
 
     console.log('获取城市列表响应:', JSON.stringify(data));
 
+    // 如果API失败，使用备用城市列表
+    const fallbackCities: CityInfo[] = [
+      { id: 'beijing', name: '北京', pinyin: 'Beijing' },
+      { id: 'shanghai', name: '上海', pinyin: 'Shanghai' },
+      { id: 'guangzhou', name: '广州', pinyin: 'Guangzhou' },
+      { id: 'shenzhen', name: '深圳', pinyin: 'Shenzhen' },
+      { id: 'chengdu', name: '成都', pinyin: 'Chengdu' },
+      { id: 'hangzhou', name: '杭州', pinyin: 'Hangzhou' },
+      { id: 'chongqing', name: '重庆', pinyin: 'Chongqing' },
+      { id: 'xian', name: '西安', pinyin: 'Xian' },
+      { id: 'wuhan', name: '武汉', pinyin: 'Wuhan' },
+      { id: 'nanjing', name: '南京', pinyin: 'Nanjing' },
+      { id: 'suzhou', name: '苏州', pinyin: 'Suzhou' },
+      { id: 'tianjin', name: '天津', pinyin: 'Tianjin' },
+      { id: 'dalian', name: '大连', pinyin: 'Dalian' },
+      { id: 'qingdao', name: '青岛', pinyin: 'Qingdao' },
+      { id: 'xiamen', name: '厦门', pinyin: 'Xiamen' },
+      { id: 'changsha', name: '长沙', pinyin: 'Changsha' },
+      { id: 'zhengzhou', name: '郑州', pinyin: 'Zhengzhou' },
+      { id: 'shenyang', name: '沈阳', pinyin: 'Shenyang' },
+      { id: 'kunming', name: '昆明', pinyin: 'Kunming' },
+      { id: 'harbin', name: '哈尔滨', pinyin: 'Harbin' },
+      { id: 'changchun', name: '长春', pinyin: 'Changchun' },
+      { id: 'fuzhou', name: '福州', pinyin: 'Fuzhou' },
+      { id: 'jinan', name: '济南', pinyin: 'Jinan' },
+      { id: 'nanchang', name: '南昌', pinyin: 'Nanchang' },
+      { id: 'guiyang', name: '贵阳', pinyin: 'Guiyang' },
+      { id: 'taiyuan', name: '太原', pinyin: 'Taiyuan' },
+      { id: 'shijiazhuang', name: '石家庄', pinyin: 'Shijiazhuang' },
+      { id: 'haikou', name: '海口', pinyin: 'Haikou' },
+      { id: 'lanzhou', name: '兰州', pinyin: 'Lanzhou' },
+      { id: 'urumqi', name: '乌鲁木齐', pinyin: 'Urumqi' },
+      { id: 'yinchuan', name: '银川', pinyin: 'Yinchuan' },
+      { id: 'xining', name: '西宁', pinyin: 'Xining' },
+      { id: 'hohhot', name: '呼和浩特', pinyin: 'Hohhot' },
+      { id: 'nanning', name: '南宁', pinyin: 'Nanning' },
+    ];
+
     if (data.status === '1' && data.districts && data.districts.length > 0) {
       const provinces = data.districts[0].districts;
       const cities: CityInfo[] = [];
@@ -437,10 +475,16 @@ export const getAllChinaCities = async (): Promise<CityInfo[]> => {
       return cities;
     }
 
-    return [];
+    // API失败时返回备用列表
+    console.log('使用备用城市列表，共', fallbackCities.length, '个城市');
+    cachedCities = fallbackCities;
+    saveCityCacheToStorage(fallbackCities);
+    return fallbackCities;
   } catch (error) {
     console.error('获取城市列表失败:', error);
-    return [];
+    // 返回备用列表
+    cachedCities = fallbackCities;
+    return fallbackCities;
   }
 };
 

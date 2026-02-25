@@ -2,18 +2,16 @@
  * 个人中心屏幕
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   ScrollView,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth, useLogout } from '../../hooks';
-import { clearStorage } from '../../api';
 import { MainTabScreenProps } from '../../navigation/types';
 import { colors } from '../../constants';
 
@@ -21,192 +19,256 @@ type Props = MainTabScreenProps<'Profile'>;
 
 const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const { user, isLoggedIn } = useAuth();
-  const { logout, loading } = useLogout();
+  const { logout } = useLogout();
+  const [showConfirm, setShowConfirm] = useState(false);
 
-  const handleLogout = () => {
-    Alert.alert(
-      '提示',
-      '确定要退出登录吗？',
-      [
-        { text: '取消', style: 'cancel' },
-        {
-          text: '确定',
-          onPress: async () => {
-            try {
-              await logout();
-              await clearStorage();
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'MainTabs' }],
-              });
-            } catch (error) {
-              Alert.alert('错误', '退出登录失败');
-            }
-          },
-        },
-      ]
-    );
+  // 点击退出登录按钮
+  const handleLogoutPress = () => {
+    console.log('[Profile] 退出按钮被点击,此文件夹正确');
+    setShowConfirm(true);
   };
 
-  const MenuItem = ({ 
-    icon, 
-    title, 
-    onPress,
-    showArrow = true 
-  }: { 
-    icon: string; 
-    title: string; 
-    onPress?: () => void;
-    showArrow?: boolean;
-  }) => (
-    <TouchableOpacity 
-      style={styles.menuItem} 
-      onPress={onPress}
-      disabled={!onPress}
-    >
-      <MaterialIcons name={icon} size={24} color={colors.primary} />
-      <Text style={styles.menuTitle}>{title}</Text>
-      {showArrow && <MaterialIcons name="chevron-right" size={24} color={colors.gray} />}
-    </TouchableOpacity>
-  );
+  // 确认退出
+  const handleConfirmLogout = async () => {
+    console.log('[Profile] 确认退出, 开始调用logout');
+    setShowConfirm(false);
+    try {
+      await logout();
+      console.log('[Profile] logout调用完成');
+    } catch (error) {
+      console.error('[Profile] 退出失败:', error);
+    }
+  };
+
+  // 取消退出
+  const handleCancelLogout = () => {
+    console.log('[Profile] 取消退出');
+    setShowConfirm(false);
+  };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.avatarContainer}>
-          <MaterialIcons name="account-circle" size={80} color={colors.primary} />
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollView}>
+        {/* 头部 */}
+        <View style={styles.header}>
+          <MaterialIcons name="account-circle" size={80} color="#fff" />
+          {isLoggedIn && user ? (
+            <View style={styles.userInfo}>
+              <Text style={styles.username}>{user.username}</Text>
+            </View>
+          ) : (
+            <TouchableOpacity 
+              style={styles.loginBtn}
+              onPress={() => navigation.getParent()?.navigate('Login')}
+            >
+              <Text style={styles.loginBtnText}>登录/注册</Text>
+            </TouchableOpacity>
+          )}
         </View>
-        {isLoggedIn && user ? (
-          <>
-            <Text style={styles.username}>{user.username}</Text>
-            <Text style={styles.email}>{user.email}</Text>
-          </>
-        ) : (
+
+        {/* 菜单 */}
+        <View style={styles.menu}>
           <TouchableOpacity 
-            style={styles.loginButton}
-            onPress={() => {}}
+            style={styles.menuItem} 
+            onPress={() => navigation.navigate('Favorites')}
           >
-            <Text style={styles.loginButtonText}>登录/注册</Text>
+            <MaterialIcons name="favorite" size={24} color={colors.primary} />
+            <Text style={styles.menuText}>我的收藏</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#999" />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('BrowsingHistory')}
+          >
+            <MaterialIcons name="history" size={24} color={colors.primary} />
+            <Text style={styles.menuText}>浏览历史</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#999" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem}>
+            <MaterialIcons name="info-outline" size={24} color={colors.primary} />
+            <Text style={styles.menuText}>关于我们</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#999" />
+          </TouchableOpacity>
+        </View>
+
+        {/* 退出登录按钮 - 只在登录状态下显示 */}
+        {isLoggedIn && (
+          <TouchableOpacity 
+            style={styles.logoutBtn}
+            onPress={handleLogoutPress}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="logout" size={20} color="#fff" />
+            <Text style={styles.logoutBtnText}>退出登录</Text>
           </TouchableOpacity>
         )}
-      </View>
 
-      <View style={styles.menuContainer}>
-        <Text style={styles.menuSection}>我的订单</Text>
-        <MenuItem icon="receipt" title="全部订单" />
-        <MenuItem icon="hotel" title="酒店订单" />
+        <Text style={styles.version}>酒店管理系统 v1.0.0</Text>
+      </ScrollView>
 
-        <Text style={styles.menuSection}>我的收藏</Text>
-        <MenuItem 
-          icon="favorite" 
-          title="我的收藏" 
-          onPress={() => navigation.navigate('Favorites')} 
-        />
-
-        <Text style={styles.menuSection}>其他</Text>
-        <MenuItem icon="help-outline" title="帮助中心" />
-        <MenuItem icon="settings" title="设置" />
-        <MenuItem icon="info-outline" title="关于我们" />
-      </View>
-
-      {isLoggedIn && (
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={handleLogout}
-          disabled={loading}
-        >
-          <Text style={styles.logoutText}>
-            {loading ? '退出中...' : '退出登录'}
-          </Text>
-        </TouchableOpacity>
+      {/* 确认退出弹窗 */}
+      {showConfirm && (
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmBox}>
+            <Text style={styles.confirmTitle}>提示</Text>
+            <Text style={styles.confirmText}>确定要退出登录吗？</Text>
+            <View style={styles.confirmButtons}>
+              <TouchableOpacity 
+                style={styles.cancelBtn}
+                onPress={handleCancelLogout}
+              >
+                <Text style={styles.cancelBtnText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.confirmBtn}
+                onPress={handleConfirmLogout}
+              >
+                <Text style={styles.confirmBtnText}>确定</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       )}
-
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>酒店管理系统 v1.0.0</Text>
-      </View>
-    </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#f5f5f5',
+  },
+  scrollView: {
+    flex: 1,
   },
   header: {
     backgroundColor: colors.primary,
-    paddingVertical: 30,
+    paddingVertical: 40,
+    paddingHorizontal: 20,
     alignItems: 'center',
   },
-  avatarContainer: {
-    marginBottom: 10,
+  userInfo: {
+    marginTop: 10,
+    alignItems: 'center',
   },
   username: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.white,
-    marginBottom: 5,
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#fff',
   },
   email: {
     fontSize: 14,
     color: 'rgba(255,255,255,0.8)',
+    marginTop: 4,
   },
-  loginButton: {
-    backgroundColor: colors.white,
+  loginBtn: {
+    marginTop: 15,
+    backgroundColor: '#fff',
     paddingVertical: 10,
     paddingHorizontal: 30,
-    borderRadius: 20,
+    borderRadius: 25,
   },
-  loginButtonText: {
+  loginBtnText: {
     color: colors.primary,
     fontSize: 16,
     fontWeight: '600',
   },
-  menuContainer: {
-    backgroundColor: colors.white,
-    marginTop: 10,
+  menu: {
+    backgroundColor: '#fff',
+    marginTop: 15,
     paddingHorizontal: 15,
-  },
-  menuSection: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    paddingVertical: 10,
-    paddingHorizontal: 5,
-    backgroundColor: colors.background,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#eee',
   },
-  menuTitle: {
+  menuText: {
     flex: 1,
-    fontSize: 16,
-    color: colors.text,
     marginLeft: 15,
-  },
-  logoutButton: {
-    backgroundColor: colors.white,
-    marginTop: 10,
-    paddingVertical: 15,
-    alignItems: 'center',
-  },
-  logoutText: {
     fontSize: 16,
-    color: colors.error,
+    color: '#333',
   },
-  footer: {
-    paddingVertical: 30,
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ff3b30',
+    marginHorizontal: 15,
+    marginTop: 30,
+    paddingVertical: 15,
+    borderRadius: 10,
+  },
+  logoutBtnText: {
+    marginLeft: 8,
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  version: {
+    textAlign: 'center',
+    marginTop: 30,
+    marginBottom: 20,
+    color: '#999',
+    fontSize: 12,
+  },
+  // 确认弹窗样式
+  confirmOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  footerText: {
-    fontSize: 12,
-    color: colors.gray,
+  confirmBox: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    width: '80%',
+    maxWidth: 300,
+  },
+  confirmTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  confirmText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#666',
+  },
+  confirmButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  cancelBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 30,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+  },
+  cancelBtnText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  confirmBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 30,
+    borderRadius: 8,
+    backgroundColor: '#ff3b30',
+  },
+  confirmBtnText: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '600',
   },
 });
 
 export default ProfileScreen;
-
-

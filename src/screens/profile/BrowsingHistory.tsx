@@ -1,5 +1,5 @@
 /**
- * 收藏屏幕
+ * 浏览历史屏幕
  */
 
 import React, { useState, useCallback } from 'react';
@@ -11,78 +11,52 @@ import {
   TouchableOpacity,
   Image,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { getFavorites, removeFavorite, getHotelMainImage } from '../../utils';
+import { getBrowsingHistoryFromServer, clearBrowsingHistoryFromServer } from '../../api';
 import { formatPrice, getRatingDisplay } from '../../utils';
-import { FavoriteHotel, Hotel } from '../../types';
-import { MainTabScreenProps } from '../../navigation/types';
+import { Hotel } from '../../types';
+import { MainStackScreenProps } from '../../navigation/types';
 import { colors, DEFAULT_HOTEL_IMAGE } from '../../constants';
-import { getHotelDetail, getFavoritesFromServer, removeFavoriteFromServer } from '../../api';
 
-type Props = MainTabScreenProps<'Favorites'>;
+type Props = MainStackScreenProps<'BrowsingHistory'>;
 
 // 带原始hotelId的酒店数据
 interface HotelWithOriginId extends Hotel {
   originHotelId: string;
+  viewedAt?: string;
 }
 
-const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
-  const [favorites, setFavorites] = useState<FavoriteHotel[]>([]);
+const BrowsingHistoryScreen: React.FC<Props> = ({ navigation }) => {
   const [hotels, setHotels] = useState<HotelWithOriginId[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadFavorites = async () => {
+  const loadBrowsingHistory = async () => {
     setLoading(true);
     try {
-      // 只从服务器获取收藏列表
-      let favs: FavoriteHotel[] = [];
-      let hotelsFromServer: any[] = [];
+      const response = await getBrowsingHistoryFromServer();
+      console.log('浏览历史响应:', response);
       
-      try {
-        const response = await getFavoritesFromServer();
-        console.log('服务器收藏响应:', response);
-        
-        if (response.code === 200 && response.data && response.data.items) {
-          // 收藏列表接口已经返回了酒店详情，直接使用
-          hotelsFromServer = response.data.items
-            .filter((hotel: any) => hotel && hotel._id)
-            .map((hotel: any) => ({
-              ...hotel,
-              originHotelId: hotel._id,
-            }));
-          
-          favs = hotelsFromServer.map(h => ({
-            hotelId: h._id,
-            addedAt: h.favoritedAt || h.createdAt || new Date().toISOString(),
+      if (response.code === 200 && response.data && response.data.items) {
+        const historyItems = response.data.items
+          .filter((item: any) => item && item.hotelId)
+          .map((item: any) => ({
+            ...item.hotelId,
+            originHotelId: item.hotelId._id || item.hotelId,
+            viewedAt: item.viewedAt,
           }));
-          
-          console.log('从服务器获取收藏列表成功, 数量:', hotelsFromServer.length);
-        } else {
-          console.log('服务器返回空列表');
-        }
-      } catch (error) {
-        console.error('从服务器获取收藏失败:', error);
+        
+        console.log('浏览历史数据:', historyItems.length);
+        setHotels(historyItems);
+      } else {
+        console.log('没有浏览历史数据');
+        setHotels([]);
       }
-      
-      // 如果服务器返回了酒店详情，直接使用
-      if (hotelsFromServer.length > 0) {
-        console.log('使用服务器返回的酒店数据, 数量:', hotelsFromServer.length);
-        setFavorites(favs);
-        setHotels(hotelsFromServer as HotelWithOriginId[]);
-        setLoading(false);
-        return;
-      }
-      
-      // 服务器没有返回数据，显示空状态
-      console.log('没有从服务器获取到收藏数据，显示空状态');
-      setFavorites([]);
-      setHotels([]);
     } catch (error) {
-      console.error('加载收藏失败:', error);
-      setFavorites([]);
+      console.error('获取浏览历史失败:', error);
       setHotels([]);
     } finally {
       setLoading(false);
@@ -91,38 +65,56 @@ const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
 
   useFocusEffect(
     useCallback(() => {
-      loadFavorites();
+      loadBrowsingHistory();
     }, [])
   );
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadFavorites();
+    await loadBrowsingHistory();
     setRefreshing(false);
   };
 
-  const handleRemoveFavorite = async (hotelId: string) => {
-    console.log('取消收藏, hotelId:', hotelId);
-    try {
-      // 先调用后端 API 移除收藏
-      try {
-        await removeFavoriteFromServer(hotelId);
-        console.log('后端取消收藏成功');
-      } catch (error) {
-        console.error('后端取消收藏失败:', error);
-      }
-      // 同时移除本地存储
-      await removeFavorite(hotelId);
-      // 从列表中移除该酒店
-      setHotels(prev => prev.filter(h => h.originHotelId !== hotelId));
-      console.log('取消收藏成功');
-    } catch (error) {
-      console.error('取消收藏失败:', error);
-    }
+  const handleClearHistory = () => {
+    Alert.alert(
+      '提示',
+      '确定要清空所有浏览历史吗？',
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '确定',
+          onPress: async () => {
+            try {
+              await clearBrowsingHistoryFromServer();
+              setHotels([]);
+              console.log('浏览历史已清空');
+            } catch (error) {
+              console.error('清空浏览历史失败:', error);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleHotelPress = (hotel: HotelWithOriginId) => {
     navigation.navigate('HotelDetail', { hotelId: hotel.originHotelId, hotel });
+  };
+
+  const formatViewedTime = (dateString?: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return '刚刚';
+    if (diffMins < 60) return `${diffMins}分钟前`;
+    if (diffHours < 24) return `${diffHours}小时前`;
+    if (diffDays < 7) return `${diffDays}天前`;
+    return date.toLocaleDateString('zh-CN');
   };
 
   const renderHotelItem = ({ item }: { item: HotelWithOriginId }) => (
@@ -146,27 +138,37 @@ const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.rating}>{getRatingDisplay(item.rating)}</Text>
           <Text style={styles.reviewCount}>({item.reviewCount}条评价)</Text>
         </View>
-        <View style={styles.priceRow}>
-          <Text style={styles.price}>{formatPrice(item.price)}</Text>
-          <Text style={styles.priceUnit}>起</Text>
+        <View style={styles.bottomRow}>
+          <View style={styles.priceRow}>
+            <Text style={styles.price}>{formatPrice(item.price)}</Text>
+            <Text style={styles.priceUnit}>起</Text>
+          </View>
+          <Text style={styles.viewedTime}>{formatViewedTime(item.viewedAt)}</Text>
         </View>
       </View>
-      <TouchableOpacity
-        style={styles.favoriteButton}
-        onPress={() => handleRemoveFavorite(item.originHotelId)}
-      >
-        <MaterialIcons name="favorite" size={24} color={colors.secondary} />
-      </TouchableOpacity>
     </TouchableOpacity>
   );
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <MaterialIcons name="favorite-border" size={64} color={colors.gray} />
-      <Text style={styles.emptyText}>暂无收藏</Text>
-      <Text style={styles.emptySubtext}>快去发现喜欢的酒店吧</Text>
+      <MaterialIcons name="history" size={64} color={colors.gray} />
+      <Text style={styles.emptyText}>暂无浏览历史</Text>
+      <Text style={styles.emptySubtext}>快去浏览感兴趣的酒店吧</Text>
     </View>
   );
+
+  const renderHeader = () => {
+    if (hotels.length === 0) return null;
+    
+    return (
+      <View style={styles.header}>
+        <Text style={styles.headerText}>共浏览 {hotels.length} 家酒店</Text>
+        <TouchableOpacity onPress={handleClearHistory}>
+          <Text style={styles.clearText}>清空</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -175,6 +177,7 @@ const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
         renderItem={renderHotelItem}
         keyExtractor={(item) => item.originHotelId}
         contentContainerStyle={styles.listContent}
+        ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmpty}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
@@ -192,6 +195,22 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 10,
     flexGrow: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 5,
+  },
+  headerText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  clearText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
   },
   hotelItem: {
     flexDirection: 'row',
@@ -239,6 +258,11 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginLeft: 4,
   },
+  bottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
@@ -253,9 +277,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginLeft: 4,
   },
-  favoriteButton: {
-    justifyContent: 'center',
-    paddingLeft: 10,
+  viewedTime: {
+    fontSize: 12,
+    color: colors.textSecondary,
   },
   emptyContainer: {
     flex: 1,
@@ -275,6 +299,5 @@ const styles = StyleSheet.create({
   },
 });
 
-export default FavoritesScreen;
-
+export default BrowsingHistoryScreen;
 

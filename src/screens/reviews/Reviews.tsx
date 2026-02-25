@@ -69,8 +69,8 @@ const ReviewsScreen: React.FC<Props> = ({ route, navigation }) => {
   const [commentContent, setCommentContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchReviews = useCallback(async (reset: boolean = false) => {
-    const currentPage = reset ? 1 : page;
+  const fetchReviews = useCallback(async (reset: boolean = false, currentReviews: Review[] = [], pageOverride?: number) => {
+    const currentPage = pageOverride !== undefined ? pageOverride : (reset ? 1 : page);
     
     if (loading && !reset) return;
     
@@ -80,9 +80,13 @@ const ReviewsScreen: React.FC<Props> = ({ route, navigation }) => {
       if (response.code === 200 && response.data) {
         const newReviews = reset 
           ? response.data.items 
-          : [...reviews, ...response.data.items];
+          : [...currentReviews, ...response.data.items];
         
         setReviews(newReviews);
+        
+        // 如果没有返回数据，或者当前页 >= 总页数，则停止加载更多
+        const isLastPage = response.data.items.length === 0 || currentPage >= response.data.totalPages;
+        setHasMore(!isLastPage);
         // 合并 API 返回的统计数据与默认值，确保所有属性都存在
         setRatingStats({
           ...{
@@ -99,7 +103,6 @@ const ReviewsScreen: React.FC<Props> = ({ route, navigation }) => {
           },
           ...response.data.ratingStats,
         });
-        setHasMore(currentPage < response.data.totalPages);
         setPage(currentPage);
       }
     } catch (error) {
@@ -108,21 +111,22 @@ const ReviewsScreen: React.FC<Props> = ({ route, navigation }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [hotelId, page, reviews, loading]);
+  }, [hotelId, page, loading]);
 
   useEffect(() => {
-    fetchReviews(true);
+    fetchReviews(true, []);
   }, []);
 
   const handleRefresh = () => {
     setRefreshing(true);
-    fetchReviews(true);
+    fetchReviews(true, []);
   };
 
   const handleLoadMore = () => {
     if (hasMore && !loading) {
-      setPage(prev => prev + 1);
-      fetchReviews();
+      const nextPage = page + 1;
+      setPage(nextPage);
+      fetchReviews(false, reviews, nextPage);
     }
   };
 
@@ -157,7 +161,7 @@ const ReviewsScreen: React.FC<Props> = ({ route, navigation }) => {
         setCommentContent('');
         setCommentRating(5);
         setCommentType('good');
-        fetchReviews(true);
+        fetchReviews(true, []);
       } else {
         Alert.alert('失败', response.message || '评论发表失败');
       }
@@ -180,7 +184,7 @@ const ReviewsScreen: React.FC<Props> = ({ route, navigation }) => {
             const response = await deleteReview(reviewId);
             if (response.code === 200) {
               setReviews(prev => prev.filter(r => r._id !== reviewId));
-              fetchReviews(true);
+              fetchReviews(true, []);
             } else {
               Alert.alert('失败', response.message || '删除失败');
             }

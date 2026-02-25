@@ -15,6 +15,8 @@ import {
   logout as apiLogout,
   saveToken,
   saveUser,
+  addFavoriteToServer,
+  removeFavoriteFromServer,
 } from '../api';
 import {
   Hotel,
@@ -120,13 +122,20 @@ export const useLogout = () => {
   const { setAuthState } = useAuth();
 
   const logout = useCallback(async () => {
+    console.log('[useLogout] Starting logout...');
     setLoading(true);
     try {
       await apiLogout();
+      console.log('[useLogout] API logout done');
+    } catch (error) {
+      console.error('[useLogout] API error:', error);
     } finally {
       // 更新全局认证状态
+      console.log('[useLogout] Calling setAuthState(false, null)');
       setAuthState(false, null);
+      console.log('[useLogout] setAuthState called');
       setLoading(false);
+      console.log('[useLogout] Logout completed');
     }
   }, [setAuthState]);
 
@@ -282,8 +291,12 @@ export const useHotelDetail = (hotelId: string) => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchDetail = useCallback(async () => {
-    if (!hotelId) return;
+    if (!hotelId) {
+      console.log('[useHotelDetail] No hotelId provided');
+      return;
+    }
 
+    console.log('[useHotelDetail] Fetching detail for:', hotelId);
     setLoading(true);
     setError(null);
 
@@ -291,12 +304,15 @@ export const useHotelDetail = (hotelId: string) => {
       const response = await getHotelDetail(hotelId);
       
       if (response.code === 200 && response.data) {
+        console.log('[useHotelDetail] Got hotel data:', response.data.name);
+        console.log('[useHotelDetail] Room types:', response.data.roomTypes);
         setHotel(response.data);
       } else {
         throw new Error(response.message || '获取酒店详情失败');
       }
     } catch (err: any) {
       const message = err.response?.data?.message || err.message || '获取酒店详情失败';
+      console.error('[useHotelDetail] Error:', message);
       setError(message);
     } finally {
       setLoading(false);
@@ -341,11 +357,25 @@ export const useFavorite = (hotelId: string) => {
       
       if (exists) {
         parsed = parsed.filter(f => f.hotelId !== hotelId);
+        // 调用后端 API 移除收藏
+        try {
+          await removeFavoriteFromServer(hotelId);
+          console.log('后端收藏移除成功');
+        } catch (error) {
+          console.error('后端移除收藏失败:', error);
+        }
       } else {
         parsed.push({
           hotelId,
           addedAt: new Date().toISOString(),
         });
+        // 调用后端 API 添加收藏
+        try {
+          await addFavoriteToServer(hotelId);
+          console.log('后端收藏添加成功');
+        } catch (error) {
+          console.error('后端添加收藏失败:', error);
+        }
       }
       
       await AsyncStorage.setItem(STORAGE_KEYS.FAVORITES, JSON.stringify(parsed));

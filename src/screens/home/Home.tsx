@@ -21,9 +21,10 @@ import {
 import * as Location from 'expo-location';
 import { MaterialIcons } from '@expo/vector-icons';
 import { MainTabScreenProps } from '../../navigation/types';
-import { searchAddress, geocodeAddress, reverseGeocode, getAllChinaCities, Location as LocationType, CityInfo } from '../../services/location';
+import { searchAddress, geocodeAddress, reverseGeocode, Location as LocationType } from '../../services/location';
 import { getHotelList } from '../../api';
 import { Hotel } from '../../types';
+import CityPicker from '../../components/CityPicker';
 
 type Props = MainTabScreenProps<'Home'>;
 
@@ -39,8 +40,6 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [addressSuggestions, setAddressSuggestions] = useState<string[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [locating, setLocating] = useState(false);
-  const [cityList, setCityList] = useState<CityInfo[]>([]);
-  const [loadingCities, setLoadingCities] = useState(true);
   
   // 日期选择状态
   const [checkInDate, setCheckInDate] = useState<Date>(new Date());
@@ -129,26 +128,6 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const bannerRef = useRef<FlatList>(null);
   const [autoPlay, setAutoPlay] = useState(true);
 
-  // 加载城市列表
-  useEffect(() => {
-    const loadCities = async () => {
-      try {
-        const cities = await getAllChinaCities();
-        if (cities.length > 0) {
-          setCityList(cities);
-        } else {
-          // 如果API失败，使用备用城市列表
-          console.log('使用备用城市列表');
-        }
-      } catch (error) {
-        console.error('加载城市列表失败:', error);
-      } finally {
-        setLoadingCities(false);
-      }
-    };
-    loadCities();
-  }, []);
-
   // 获取热门酒店数据用于Banner轮播
   useEffect(() => {
     const fetchBannerHotels = async () => {
@@ -198,29 +177,6 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     bannerRef.current?.scrollToIndex({ index: nextIndex, animated: true });
     setBannerIndex(nextIndex);
   };
-
-  // 过滤有有效拼音首字母的城市，并按拼音首字母排序
-  const sortedCityList = [...cityList]
-    .filter(city => {
-      const pinyin = city.pinyin || city.name;
-      return /^[A-Za-z]/.test(pinyin);
-    })
-    .sort((a, b) => 
-      (a.pinyin || a.name).localeCompare(b.pinyin || b.name, 'en-US')
-    );
-
-  // 按拼音首字母分组的城市列表
-  const groupedCities = sortedCityList.reduce((groups, city) => {
-    const pinyin = city.pinyin || city.name;
-    const firstLetter = pinyin.charAt(0).toUpperCase();
-    if (!groups[firstLetter]) {
-      groups[firstLetter] = [];
-    }
-    groups[firstLetter].push(city);
-    return groups;
-  }, {} as Record<string, typeof cityList>);
-
-  const citySections = Object.keys(groupedCities).sort();
 
   // 搜索地址建议
   const handleAddressSearch = useCallback(async (keyword: string) => {
@@ -529,59 +485,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         </Text>
       </View>
 
-      {/* 城市选择弹窗 */}
-      <Modal visible={showCityPicker} transparent animationType="slide">
-        <TouchableOpacity 
-          style={styles.modalOverlay} 
-          activeOpacity={1}
-          onPress={() => setShowCityPicker(false)}
-        >
-          <View style={styles.cityPickerContainer}>
-            <View style={styles.cityPickerHeader}>
-              <Text style={styles.cityPickerTitle}>选择城市</Text>
-              <TouchableOpacity onPress={() => setShowCityPicker(false)}>
-                <MaterialIcons name="close" size={24} color="#666" />
-              </TouchableOpacity>
-            </View>
-            <ScrollView contentContainerStyle={styles.cityList}>
-              {loadingCities ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color="#1E90FF" />
-                  <Text style={styles.loadingText}>加载城市中...</Text>
-                </View>
-              ) : cityList.length === 0 ? (
-                <View style={styles.loadingContainer}>
-                  <Text style={styles.loadingText}>暂无城市数据</Text>
-                </View>
-              ) : (
-                <>
-                  {citySections.map((letter) => (
-                    <View key={letter} style={styles.citySection}>
-                      <Text style={styles.citySectionLetter}>{letter}</Text>
-                      <View style={styles.citySectionContent}>
-                        {groupedCities[letter].map((city) => (
-                          <TouchableOpacity
-                            key={city.id}
-                            style={[styles.cityItem, selectedCity === city.name && styles.cityItemActive]}
-                            onPress={() => handleCitySelect(city.name)}
-                          >
-                            <Text style={[styles.cityItemText, selectedCity === city.name && styles.cityItemTextActive]}>
-                              {city.name}
-                            </Text>
-                            {selectedCity === city.name && (
-                              <MaterialIcons name="check" size={18} color="#1E90FF" />
-                            )}
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    </View>
-                  ))}
-                </>
-              )}
-            </ScrollView>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+      {/* 城市选择弹窗 - 使用复用组件 */}
+      <CityPicker
+        visible={showCityPicker}
+        onClose={() => setShowCityPicker(false)}
+        onSelect={handleCitySelect}
+        selectedCity={selectedCity}
+      />
 
       {/* 地址搜索弹窗 */}
       <Modal visible={showAddressPicker} transparent animationType="slide">
