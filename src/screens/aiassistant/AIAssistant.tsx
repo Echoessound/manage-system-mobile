@@ -130,11 +130,7 @@ const AIAssistantScreen: React.FC<Props> = ({ navigation }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      {/* 头部 */}
-      <View style={styles.header}>
-        <MaterialIcons name="智能" size={28} color={colors.white} />
-        <Text style={styles.headerTitle}>AI 助手</Text>
-      </View>
+      
 
       {/* 消息列表 */}
       <FlatList
@@ -156,14 +152,20 @@ const AIAssistantScreen: React.FC<Props> = ({ navigation }) => {
       {/* 输入区域 */}
       <View style={styles.inputContainer}>
         <TextInput
-          style={styles.input}
+          style={[styles.input, {
+            height: 50,
+            justifyContent: 'flex-end',
+            alignItems: 'flex-end',
+          }]}
           placeholder="请输入您的问题..."
-          placeholderTextColor={colors.grayLight}
+          placeholderTextColor="#999999"
           value={inputText}
           onChangeText={setInputText}
           multiline
           maxLength={500}
           editable={!loading}
+          textAlignVertical="bottom"
+          
         />
         <TouchableOpacity
           style={[
@@ -172,8 +174,11 @@ const AIAssistantScreen: React.FC<Props> = ({ navigation }) => {
           ]}
           onPress={handleSend}
           disabled={!inputText.trim() || loading}
+          activeOpacity={0.7}
         >
-          <MaterialIcons name="send" size={24} color={colors.white} />
+          <View style={styles.sendButtonContent}>
+            <MaterialIcons name="send" size={18} color={colors.white} />
+          </View>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -183,7 +188,7 @@ const AIAssistantScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.grayLight,
+    backgroundColor: '#F5F5F5',
   },
   header: {
     flexDirection: 'row',
@@ -264,32 +269,52 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    padding: 10,
+    padding: 12,
     backgroundColor: colors.white,
     borderTopWidth: 1,
-    borderTopColor: colors.grayLight,
+    borderTopColor: '#E8E8E8',
+    // 添加微妙阴影
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
   },
   input: {
     flex: 1,
-    backgroundColor: colors.grayLight,
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 22,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
     maxHeight: 100,
     fontSize: 15,
     color: colors.text,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
   },
   sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 10,
+    marginLeft: 12,
+    // 添加阴影
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  sendButtonContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   sendButtonDisabled: {
-    backgroundColor: colors.grayLight,
+    backgroundColor: '#DADADA',
+    shadowOpacity: 0,
+    elevation: 0,
   },
 });
 

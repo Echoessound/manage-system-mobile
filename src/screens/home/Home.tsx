@@ -224,7 +224,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   // 点击Banner跳转到酒店详情
   const handleBannerPress = (hotel: Hotel) => {
-    const hotelId = hotel.id;
+    const hotelId = hotel.id || hotel._id;
     if (hotelId) {
       navigation.navigate('HotelDetail', { hotelId, hotel });
     }

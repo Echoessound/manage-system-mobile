@@ -19,13 +19,23 @@ export async function chatWithAI(
       messages: messages.filter(m => m.role !== 'system'),
     });
 
-    if (response.data.code === 200) {
-      const content = response.data.data.message.content;
-      onChunk?.(content);
-      return content;
+    // 支持两种响应格式
+    // 格式1: { success: true, message: "..." } (当前后端返回)
+    // 格式2: { code: 200, data: { message: { content: "..." } } }
+    let content = '';
+    
+    if (response.data.success === true && response.data.message) {
+      // 新格式
+      content = response.data.message;
+    } else if (response.data.code === 200 && response.data.data?.message?.content) {
+      // 旧格式
+      content = response.data.data.message.content;
     } else {
       throw new Error(response.data.message || 'AI 服务错误');
     }
+
+    onChunk?.(content);
+    return content;
   } catch (error: any) {
     console.error('AI API Error:', error);
     throw new Error(error.response?.data?.message || error.message || '请求失败');

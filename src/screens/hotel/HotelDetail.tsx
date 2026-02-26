@@ -19,7 +19,7 @@ import { useHotelDetail, useFavorite } from '../../hooks';
 import { formatPrice, getRatingDisplay } from '../../utils';
 import { colors, DEFAULT_HOTEL_IMAGE, DEFAULT_ROOM_IMAGE, AVAILABLE_AMENITIES } from '../../constants';
 import { RoomType, Hotel } from '../../types';
-import { addBrowsingHistoryToServer } from '../../api';
+import { addBrowsingHistoryToServer, getHotelReviews } from '../../api';
 
 const { width } = Dimensions.get('window');
 
@@ -30,8 +30,25 @@ const HotelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { hotel, loading, error, refresh } = useHotelDetail(hotelId);
   const { isFavorite, toggleFavorite } = useFavorite(hotelId);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [realReviewCount, setRealReviewCount] = useState<number>(0);
 
   const currentHotel = hotel || initialHotel;
+
+  // 获取真实评论数
+  useEffect(() => {
+    const fetchRealReviewCount = async () => {
+      if (!hotelId) return;
+      try {
+        const response = await getHotelReviews(hotelId, 1, 1);
+        if (response.code === 200) {
+          setRealReviewCount(response.data?.total || 0);
+        }
+      } catch (error) {
+        console.log('获取评论数失败:', error);
+      }
+    };
+    fetchRealReviewCount();
+  }, [hotelId]);
 
   // 记录浏览历史
   useEffect(() => {
@@ -181,7 +198,7 @@ const HotelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               {getRatingDisplay(currentHotel.rating)}
             </Text>
           </View>
-          <Text style={styles.reviewCount}>{currentHotel.reviewCount}条评价</Text>
+          <Text style={styles.reviewCount}>{realReviewCount}条评价</Text>
         </View>
 
         <View style={styles.addressRow}>
