@@ -146,7 +146,6 @@ const ReviewsScreen: React.FC<Props> = ({ route, navigation }) => {
 
     setSubmitting(true);
     try {
-      console.log('Submitting review:', { hotelId, rating: commentRating, content: commentContent.trim(), type: commentType });
       const response = await createReview({
         hotelId,
         rating: commentRating,
@@ -154,7 +153,6 @@ const ReviewsScreen: React.FC<Props> = ({ route, navigation }) => {
         type: commentType,
       });
 
-      console.log('Review response:', response);
       if (response.code === 200) {
         Alert.alert('成功', '评论发表成功');
         setShowCommentForm(false);

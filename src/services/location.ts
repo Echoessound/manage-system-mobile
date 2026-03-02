@@ -59,13 +59,10 @@ export const reverseGeocode = async (location: Location): Promise<GeocodingResul
     });
 
     const url = `https://restapi.amap.com/v3/geocode/regeo?${params}`;
-    console.log('逆地理编码请求:', url);
     
     const response = await fetch(url);
     const data = await response.json();
     
-    console.log('逆地理编码响应:', JSON.stringify(data));
-
     if (data.status === '1' && data.regeocode) {
       const regeocode = data.regeocode;
       const addressComponent = regeocode.addressComponent;
@@ -79,7 +76,6 @@ export const reverseGeocode = async (location: Location): Promise<GeocodingResul
         number: addressComponent.streetNumber?.number || '',
       };
     }
-    console.log('逆地理编码失败: status =', data.status);
     return null;
   } catch (error) {
     console.error('逆地理编码失败:', error);
@@ -343,7 +339,6 @@ const loadCityCacheFromStorage = async (): Promise<CityInfo[] | null> => {
       const { data, timestamp } = JSON.parse(cached);
       // 检查是否过期
       if (Date.now() - timestamp < CITY_CACHE_EXPIRY) {
-        console.log('从本地存储加载城市缓存成功');
         return data;
       }
     }
@@ -361,7 +356,6 @@ const saveCityCacheToStorage = async (cities: CityInfo[]): Promise<void> => {
       data: cities,
       timestamp: Date.now(),
     }));
-    console.log('城市缓存已保存到本地存储');
   } catch (error) {
     console.error('保存城市缓存失败:', error);
   }
@@ -397,8 +391,6 @@ export const getAllChinaCities = async (): Promise<CityInfo[]> => {
 
     const response = await fetch(`${AMAP_DISTRICT_URL}?${params}`);
     const data = await response.json();
-
-    console.log('获取城市列表响应:', JSON.stringify(data));
 
     // 如果API失败，使用备用城市列表
     const fallbackCities: CityInfo[] = [
@@ -470,13 +462,10 @@ export const getAllChinaCities = async (): Promise<CityInfo[]> => {
       // 保存到本地存储
       saveCityCacheToStorage(cities);
 
-      console.log('获取到城市数量:', cities.length);
-
       return cities;
     }
 
     // API失败时返回备用列表
-    console.log('使用备用城市列表，共', fallbackCities.length, '个城市');
     cachedCities = fallbackCities;
     saveCityCacheToStorage(fallbackCities);
     return fallbackCities;

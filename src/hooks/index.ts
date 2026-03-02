@@ -122,20 +122,15 @@ export const useLogout = () => {
   const { setAuthState } = useAuth();
 
   const logout = useCallback(async () => {
-    console.log('[useLogout] Starting logout...');
     setLoading(true);
     try {
       await apiLogout();
-      console.log('[useLogout] API logout done');
     } catch (error) {
       console.error('[useLogout] API error:', error);
     } finally {
       // 更新全局认证状态
-      console.log('[useLogout] Calling setAuthState(false, null)');
       setAuthState(false, null);
-      console.log('[useLogout] setAuthState called');
       setLoading(false);
-      console.log('[useLogout] Logout completed');
     }
   }, [setAuthState]);
 
@@ -172,11 +167,7 @@ export const useHotelList = (initialParams?: HotelListParams) => {
         publishStatus: 'published',
       };
       
-      console.log('Fetching hotels with params:', queryParams);
-      
       const response = await getHotelList(queryParams);
-      
-      console.log('API response data:', JSON.stringify(response.data));
       
       if (response.code === 200 && response.data) {
         const newHotels = reset 
@@ -184,7 +175,6 @@ export const useHotelList = (initialParams?: HotelListParams) => {
           : [...hotels, ...response.data.items];
         
         setHotels(newHotels);
-        console.log('Setting total:', response.data.total);
         setTotal(response.data.total);
         setHasMore(currentPage < response.data.totalPages);
         setPage(currentPage);

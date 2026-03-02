@@ -18,7 +18,7 @@ import { useSearchHotels } from '../../hooks';
 import { MainTabScreenProps } from '../../navigation/types';
 import { Hotel } from '../../types';
 import { DEFAULT_HOTEL_IMAGE } from '../../constants';
-import { formatPrice, getRatingDisplay, getSearchHistory, addSearchHistory, clearSearchHistory } from '../../utils';
+import { formatPrice, getRatingDisplay, getSearchHistory, addSearchHistory, clearSearchHistory, getFullImageUrl } from '../../utils';
 import { colors } from '../../constants';
 
 type Props = MainTabScreenProps<'Search'>;
@@ -58,7 +58,7 @@ const SearchScreen: React.FC<Props> = ({ navigation }) => {
       onPress={() => navigation.navigate('HotelDetail', { hotelId: item._id || item.id, hotel: item })}
     >
       <Image
-        source={{ uri: item.images?.[0] || DEFAULT_HOTEL_IMAGE }}
+        source={{ uri: getFullImageUrl(item.images?.[0]) || DEFAULT_HOTEL_IMAGE }}
         style={styles.hotelImage}
         resizeMode="cover"
       />

@@ -16,7 +16,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { getBrowsingHistoryFromServer, clearBrowsingHistoryFromServer } from '../../api';
-import { formatPrice, getRatingDisplay } from '../../utils';
+import { formatPrice, getRatingDisplay, getFullImageUrl } from '../../utils';
 import { Hotel } from '../../types';
 import { MainStackScreenProps } from '../../navigation/types';
 import { colors, DEFAULT_HOTEL_IMAGE } from '../../constants';
@@ -38,7 +38,6 @@ const BrowsingHistoryScreen: React.FC<Props> = ({ navigation }) => {
     setLoading(true);
     try {
       const response = await getBrowsingHistoryFromServer();
-      console.log('浏览历史响应:', response);
       
       if (response.code === 200 && response.data && response.data.items) {
         const historyItems = response.data.items
@@ -49,10 +48,8 @@ const BrowsingHistoryScreen: React.FC<Props> = ({ navigation }) => {
             viewedAt: item.viewedAt,
           }));
         
-        console.log('浏览历史数据:', historyItems.length);
         setHotels(historyItems);
       } else {
-        console.log('没有浏览历史数据');
         setHotels([]);
       }
     } catch (error) {
@@ -87,7 +84,6 @@ const BrowsingHistoryScreen: React.FC<Props> = ({ navigation }) => {
             try {
               await clearBrowsingHistoryFromServer();
               setHotels([]);
-              console.log('浏览历史已清空');
             } catch (error) {
               console.error('清空浏览历史失败:', error);
             }
@@ -123,7 +119,7 @@ const BrowsingHistoryScreen: React.FC<Props> = ({ navigation }) => {
       onPress={() => handleHotelPress(item)}
     >
       <Image
-        source={{ uri: item.images?.[0] || DEFAULT_HOTEL_IMAGE }}
+        source={{ uri: getFullImageUrl(item.images?.[0]) || DEFAULT_HOTEL_IMAGE }}
         style={styles.hotelImage}
       />
       <View style={styles.hotelInfo}>

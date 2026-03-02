@@ -16,7 +16,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { MainStackScreenProps } from '../../navigation/types';
 import { useHotelDetail, useFavorite } from '../../hooks';
-import { formatPrice, getRatingDisplay } from '../../utils';
+import { formatPrice, getRatingDisplay, getFullImageUrl } from '../../utils';
 import { colors, DEFAULT_HOTEL_IMAGE, DEFAULT_ROOM_IMAGE, AVAILABLE_AMENITIES } from '../../constants';
 import { RoomType, Hotel } from '../../types';
 import { addBrowsingHistoryToServer, getHotelReviews } from '../../api';
@@ -102,7 +102,7 @@ const HotelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   if (!currentHotel) return null;
 
   const images = currentHotel?.images?.length > 0 
-    ? currentHotel.images 
+    ? currentHotel.images.map(img => getFullImageUrl(img)) 
     : [DEFAULT_HOTEL_IMAGE];
 
   const getAmenityName = (id: string) => {
@@ -117,7 +117,7 @@ const HotelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const renderRoomType = ({ item }: { item: RoomType }) => {
     // 获取房间图片
     const roomImage = item.images && item.images.length > 0 
-      ? item.images[0] 
+      ? getFullImageUrl(item.images[0]) 
       : DEFAULT_ROOM_IMAGE;
     
     console.log('[HotelDetail] 房型图片:', item.name, '->', roomImage);

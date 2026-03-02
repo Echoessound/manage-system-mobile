@@ -24,6 +24,7 @@ import { MainTabScreenProps } from '../../navigation/types';
 import { searchAddress, geocodeAddress, reverseGeocode, Location as LocationType } from '../../services/location';
 import { getHotelList } from '../../api';
 import { Hotel } from '../../types';
+import { getFullImageUrl } from '../../utils';
 import CityPicker from '../../components/CityPicker';
 
 type Props = MainTabScreenProps<'Home'>;
@@ -273,11 +274,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const handleLocate = async () => {
     setLocating(true);
     try {
-      console.log('开始定位...');
-      
       // 请求定位权限
       const { status } = await Location.requestForegroundPermissionsAsync();
-      console.log('权限状态:', status);
       
       if (status !== 'granted') {
         Alert.alert('权限不足', '需要定位权限才能获取当前位置，请在系统设置中开启定位权限');
@@ -285,22 +283,17 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       }
 
       // 获取当前位置
-      console.log('正在获取位置...');
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
       
-      console.log('获取到坐标:', location.coords.latitude, location.coords.longitude);
-
       const currentLocation: LocationType = {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
       };
 
       // 逆地理编码获取城市信息
-      console.log('正在逆地理编码...');
       const addressInfo = await reverseGeocode(currentLocation);
-      console.log('地址信息:', addressInfo);
       
       if (addressInfo) {
         // 优先使用区/县信息，如果没有则使用城市
@@ -311,9 +304,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           if (targetCity.endsWith('市')) {
             targetCity = targetCity.slice(0, -1);
           }
-          
-          console.log('目标城市:', targetCity);
-          
+
           // 直接使用定位到的城市/区域
           setSelectedCity(targetCity);
           setSearchKeyword('');
@@ -414,7 +405,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 onPress={() => handleBannerPress(item)}
               >
                 <Image
-                  source={{ uri: item.images?.[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800' }}
+                  source={{ uri: getFullImageUrl(item.images?.[0]) || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800' }}
                   style={styles.bannerImage}
                   resizeMode="cover"
                 />

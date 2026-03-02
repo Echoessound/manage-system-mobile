@@ -3,8 +3,33 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { STORAGE_KEYS, DEFAULT_HOTEL_IMAGE, DEFAULT_ROOM_IMAGE } from '../constants';
+import { STORAGE_KEYS, DEFAULT_HOTEL_IMAGE, DEFAULT_ROOM_IMAGE, API_BASE_URL } from '../constants';
 import { FavoriteHotel, Hotel, SearchHistoryItem } from '../types';
+
+/**
+ * 处理图片 URL，确保返回完整的 URL
+ * 如果图片已经是完整 URL（原图或外部链接），直接返回
+ * 如果是相对路径，添加 API_BASE_URL 前缀
+ */
+export const getFullImageUrl = (imageUrl: string | undefined): string => {
+  if (!imageUrl) return DEFAULT_HOTEL_IMAGE;
+  
+  // 如果已经是完整的 http/https URL，直接返回
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+    return imageUrl;
+  }
+  
+  // 如果是相对路径，添加服务器地址前缀
+  return `${API_BASE_URL}${imageUrl}`;
+};
+
+/**
+ * 处理酒店图片数组，返回完整的 URL 数组
+ */
+export const getFullImageUrls = (images: string[] | undefined): string[] => {
+  if (!images || images.length === 0) return [];
+  return images.map(img => getFullImageUrl(img));
+};
 
 /**
  * 格式化价格
@@ -120,13 +145,9 @@ export const addFavorite = async (hotelId: string): Promise<void> => {
 export const removeFavorite = async (hotelId: string): Promise<void> => {
   try {
     const favorites = await getFavorites();
-    console.log('当前收藏列表:', favorites);
-    console.log('要移除的酒店ID:', hotelId);
     // 过滤掉要移除的酒店ID
     const filtered = favorites.filter(f => f.hotelId !== hotelId);
-    console.log('过滤后的收藏列表:', filtered);
     await AsyncStorage.setItem(STORAGE_KEYS.FAVORITES, JSON.stringify(filtered));
-    console.log('移除收藏成功');
   } catch (error) {
     console.error('移除收藏失败:', error);
   }

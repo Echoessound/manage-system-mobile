@@ -107,7 +107,6 @@ export const logout = async (): Promise<ApiResponse<null>> => {
   try {
     // 获取所有存储的 keys
     const keys = await AsyncStorage.getAllKeys();
-    console.log('[Logout] All storage keys:', keys);
     
     // 清除所有应用相关的存储
     const appKeys = keys.filter(key => 
@@ -117,14 +116,10 @@ export const logout = async (): Promise<ApiResponse<null>> => {
       key.includes('auth')
     );
     
-    console.log('[Logout] Keys to remove:', appKeys);
-    
     // 逐个清除
     for (const key of appKeys) {
       await AsyncStorage.removeItem(key);
     }
-    
-    console.log('[Logout] All app storage cleared successfully');
   } catch (error) {
     console.error('[Logout] Error clearing storage:', error);
   }
@@ -145,7 +140,6 @@ export const getCurrentUser = async (): Promise<ApiResponse<User>> => {
  * 获取酒店列表
  */
 export const getHotelList = async (params: HotelListParams): Promise<ApiResponse<PaginatedData<Hotel>>> => {
-  console.log('API call - getHotelList params:', params);
   const response = await apiClient.get('/hotel/list', { params });
   return response.data;
 };
@@ -158,10 +152,8 @@ export const getHotelDetail = async (hotelId: string): Promise<ApiResponse<Hotel
     console.error('[getHotelDetail] Invalid hotelId:', hotelId);
     throw new Error('无效的酒店ID');
   }
-  console.log('[getHotelDetail] Requesting hotel:', hotelId);
   // 添加时间戳防止缓存
   const response = await apiClient.get(`/hotel/detail/${hotelId}?t=${Date.now()}`);
-  console.log('[getHotelDetail] Response:', response.data);
   return response.data;
 };
 

@@ -24,17 +24,14 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
   // 点击退出登录按钮
   const handleLogoutPress = () => {
-    console.log('[Profile] 退出按钮被点击,此文件夹正确');
     setShowConfirm(true);
   };
 
   // 确认退出
   const handleConfirmLogout = async () => {
-    console.log('[Profile] 确认退出, 开始调用logout');
     setShowConfirm(false);
     try {
       await logout();
-      console.log('[Profile] logout调用完成');
     } catch (error) {
       console.error('[Profile] 退出失败:', error);
     }
@@ -42,7 +39,6 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
   // 取消退出
   const handleCancelLogout = () => {
-    console.log('[Profile] 取消退出');
     setShowConfirm(false);
   };
 

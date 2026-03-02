@@ -21,7 +21,7 @@ import { useHotelList } from '../../hooks';
 import { MainStackScreenProps } from '../../navigation/types';
 import { Hotel } from '../../types';
 import { DEFAULT_HOTEL_IMAGE } from '../../constants';
-import { formatPrice, getRatingDisplay } from '../../utils';
+import { formatPrice, getRatingDisplay, getFullImageUrl } from '../../utils';
 import CityPicker from '../../components/CityPicker';
 
 type Props = MainStackScreenProps<'HotelList'>;
@@ -56,11 +56,7 @@ const HotelListScreen: React.FC<Props> = ({ route, navigation }) => {
   
   const [refreshing, setRefreshing] = useState(false);
   
-  console.log('HotelList params:', { city, keyword, checkInDate, checkOutDate, minPrice, maxPrice, rating, amenities });
-  
   const { hotels, loading, hasMore, total, refresh, loadMore, updateParams } = useHotelList();
-  
-  console.log('HotelList rendering - total:', total, 'hotels:', hotels.length);
 
   // 计算间夜数
   const nightCount = useMemo(() => {
@@ -82,7 +78,6 @@ const HotelListScreen: React.FC<Props> = ({ route, navigation }) => {
 
   // 根据参数加载酒店
   useEffect(() => {
-    console.log('Updating params:', { city, keyword, filterMinPrice, filterMaxPrice, filterRating, filterAmenities });
     updateParams({ 
       city, 
       keyword: searchKeyword || undefined,
@@ -138,7 +133,7 @@ const HotelListScreen: React.FC<Props> = ({ route, navigation }) => {
       onPress={() => navigation.navigate('HotelDetail', { hotelId: item._id || item.id, hotel: item })}
     >
       <Image
-        source={{ uri: item.images?.[0] || DEFAULT_HOTEL_IMAGE }}
+        source={{ uri: getFullImageUrl(item.images?.[0]) || DEFAULT_HOTEL_IMAGE }}
         style={styles.hotelImage}
         resizeMode="cover"
       />

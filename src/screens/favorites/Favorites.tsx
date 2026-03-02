@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { getFavorites, removeFavorite, getHotelMainImage } from '../../utils';
+import { getFavorites, removeFavorite, getHotelMainImage, getFullImageUrl } from '../../utils';
 import { formatPrice, getRatingDisplay } from '../../utils';
 import { FavoriteHotel, Hotel } from '../../types';
 import { MainTabScreenProps } from '../../navigation/types';
@@ -43,7 +43,6 @@ const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
       
       try {
         const response = await getFavoritesFromServer();
-        console.log('服务器收藏响应:', response);
         
         if (response.code === 200 && response.data && response.data.items) {
           // 收藏列表接口已经返回了酒店详情，直接使用
@@ -58,10 +57,6 @@ const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
             hotelId: h._id,
             addedAt: h.favoritedAt || h.createdAt || new Date().toISOString(),
           }));
-          
-          console.log('从服务器获取收藏列表成功, 数量:', hotelsFromServer.length);
-        } else {
-          console.log('服务器返回空列表');
         }
       } catch (error) {
         console.error('从服务器获取收藏失败:', error);
@@ -69,7 +64,6 @@ const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
       
       // 如果服务器返回了酒店详情，直接使用
       if (hotelsFromServer.length > 0) {
-        console.log('使用服务器返回的酒店数据, 数量:', hotelsFromServer.length);
         setFavorites(favs);
         setHotels(hotelsFromServer as HotelWithOriginId[]);
         setLoading(false);
@@ -77,7 +71,6 @@ const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
       }
       
       // 服务器没有返回数据，显示空状态
-      console.log('没有从服务器获取到收藏数据，显示空状态');
       setFavorites([]);
       setHotels([]);
     } catch (error) {
@@ -102,12 +95,10 @@ const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleRemoveFavorite = async (hotelId: string) => {
-    console.log('取消收藏, hotelId:', hotelId);
     try {
       // 先调用后端 API 移除收藏
       try {
         await removeFavoriteFromServer(hotelId);
-        console.log('后端取消收藏成功');
       } catch (error) {
         console.error('后端取消收藏失败:', error);
       }
@@ -115,7 +106,6 @@ const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
       await removeFavorite(hotelId);
       // 从列表中移除该酒店
       setHotels(prev => prev.filter(h => h.originHotelId !== hotelId));
-      console.log('取消收藏成功');
     } catch (error) {
       console.error('取消收藏失败:', error);
     }
@@ -131,7 +121,7 @@ const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
       onPress={() => handleHotelPress(item)}
     >
       <Image
-        source={{ uri: item.images?.[0] || DEFAULT_HOTEL_IMAGE }}
+        source={{ uri: getFullImageUrl(item.images?.[0]) || DEFAULT_HOTEL_IMAGE }}
         style={styles.hotelImage}
       />
       <View style={styles.hotelInfo}>
