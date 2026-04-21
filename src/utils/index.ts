@@ -90,7 +90,8 @@ export const getRelativeTime = (dateStr: string): string => {
 /**
  * 获取评分显示
  */
-export const getRatingDisplay = (rating: number): string => {
+export const getRatingDisplay = (rating: number | undefined): string => {
+  if (rating == null || isNaN(rating)) return '0.0';
   return rating.toFixed(1);
 };
 

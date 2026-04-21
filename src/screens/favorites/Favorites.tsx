@@ -37,42 +37,32 @@ const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
   const loadFavorites = async () => {
     setLoading(true);
     try {
-      // 只从服务器获取收藏列表
-      let favs: FavoriteHotel[] = [];
-      let hotelsFromServer: any[] = [];
-      
-      try {
-        const response = await getFavoritesFromServer();
-        
-        if (response.code === 200 && response.data && response.data.items) {
-          // 收藏列表接口已经返回了酒店详情，直接使用
-          hotelsFromServer = response.data.items
-            .filter((hotel: any) => hotel && hotel._id)
-            .map((hotel: any) => ({
-              ...hotel,
-              originHotelId: hotel._id,
-            }));
-          
-          favs = hotelsFromServer.map(h => ({
-            hotelId: h._id,
+      const response = await getFavoritesFromServer();
+      if (response.code === 200 && response.data?.items) {
+        const items = response.data.items;
+
+        // 统一 ID 字段：hotel._id（Mongoose ObjectId）-> originHotelId
+        const mappedHotels: HotelWithOriginId[] = items
+          .filter((h: any) => h && (h._id || h.id))
+          .map((h: any) => ({
+            ...h,
+            originHotelId: (h._id || h.id).toString(),
+          }));
+
+        const favs: FavoriteHotel[] = items
+          .filter((h: any) => h && (h._id || h.id))
+          .map((h: any) => ({
+            hotelId: (h._id || h.id).toString(),
             addedAt: h.favoritedAt || h.createdAt || new Date().toISOString(),
           }));
-        }
-      } catch (error) {
-        console.error('从服务器获取收藏失败:', error);
-      }
-      
-      // 如果服务器返回了酒店详情，直接使用
-      if (hotelsFromServer.length > 0) {
+
         setFavorites(favs);
-        setHotels(hotelsFromServer as HotelWithOriginId[]);
-        setLoading(false);
-        return;
+        setHotels(mappedHotels);
+      } else {
+        // 非 200 或无数据时清空
+        setFavorites([]);
+        setHotels([]);
       }
-      
-      // 服务器没有返回数据，显示空状态
-      setFavorites([]);
-      setHotels([]);
     } catch (error) {
       console.error('加载收藏失败:', error);
       setFavorites([]);
@@ -95,20 +85,12 @@ const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleRemoveFavorite = async (hotelId: string) => {
-    try {
-      // 先调用后端 API 移除收藏
-      try {
-        await removeFavoriteFromServer(hotelId);
-      } catch (error) {
-        console.error('后端取消收藏失败:', error);
-      }
-      // 同时移除本地存储
-      await removeFavorite(hotelId);
-      // 从列表中移除该酒店
-      setHotels(prev => prev.filter(h => h.originHotelId !== hotelId));
-    } catch (error) {
-      console.error('取消收藏失败:', error);
-    }
+    // 同时清理本地存储和后端
+    await Promise.all([
+      removeFavorite(hotelId).catch(err => console.error('本地移除失败:', err)),
+      removeFavoriteFromServer(hotelId).catch(err => console.error('后端取消收藏失败:', err)),
+    ]);
+    setHotels(prev => prev.filter(h => h.originHotelId !== hotelId));
   };
 
   const handleHotelPress = (hotel: HotelWithOriginId) => {
@@ -134,10 +116,10 @@ const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.ratingContainer}>
           <MaterialIcons name="star" size={14} color={colors.warning} />
           <Text style={styles.rating}>{getRatingDisplay(item.rating)}</Text>
-          <Text style={styles.reviewCount}>({item.reviewCount}条评价)</Text>
+          <Text style={styles.reviewCount}>({item.reviewCount ?? 0}条评价)</Text>
         </View>
         <View style={styles.priceRow}>
-          <Text style={styles.price}>{formatPrice(item.price)}</Text>
+          <Text style={styles.price}>{formatPrice(item.price ?? 0)}</Text>
           <Text style={styles.priceUnit}>起</Text>
         </View>
       </View>

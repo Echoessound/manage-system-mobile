@@ -62,7 +62,7 @@ export const reverseGeocode = async (location: Location): Promise<GeocodingResul
     
     const response = await fetch(url);
     const data = await response.json();
-    
+
     if (data.status === '1' && data.regeocode) {
       const regeocode = data.regeocode;
       const addressComponent = regeocode.addressComponent;

@@ -286,7 +286,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
-      
+
       const currentLocation: LocationType = {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
@@ -304,7 +304,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           if (targetCity.endsWith('市')) {
             targetCity = targetCity.slice(0, -1);
           }
-
+          
           // 直接使用定位到的城市/区域
           setSelectedCity(targetCity);
           setSearchKeyword('');
